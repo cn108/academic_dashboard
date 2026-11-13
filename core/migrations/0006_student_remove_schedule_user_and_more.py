@@ -115,7 +115,7 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='grade',
             name='student',
-            field=models.ForeignKey(default='SOME STRING', on_delete=django.db.models.deletion.CASCADE, to='core.student'),
+            field=models.ForeignKey(default=1, on_delete=django.db.models.deletion.CASCADE, to='core.student'),
         ),
         migrations.DeleteModel(
             name='Notification',
