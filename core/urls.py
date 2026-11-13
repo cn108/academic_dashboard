@@ -1,5 +1,6 @@
 # urls.py
 from django.urls import path, include
+from django.contrib.auth import views as auth_views
 from rest_framework.routers import DefaultRouter
 from .views import StudyGroupViewSet
 from . import views
@@ -11,6 +12,9 @@ router.register(r'study-groups', StudyGroupViewSet)
 
 urlpatterns = [
     path('', views.home, name='home'),
+    path('login/', auth_views.LoginView.as_view(template_name='core/login.html'), name='login'),
+    path('logout/', auth_views.LogoutView.as_view(), name='logout'),
+    path('register/', views.register, name='register'),
     path('api/', include(router.urls)),
     path('api-auth/', include('rest_framework.urls')),
     path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),

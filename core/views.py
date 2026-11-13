@@ -1,8 +1,9 @@
 from django.shortcuts import render, get_object_or_404, redirect
 from django.views.decorators.csrf import csrf_exempt
+from django.contrib.auth import login as auth_login
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
-from .forms import StudyGroupForm, GradeForm, AssignmentForm
+from .forms import StudyGroupForm, GradeForm, AssignmentForm, RegisterForm
 import logging
 from django.utils import timezone
 from rest_framework import viewsets
@@ -10,9 +11,22 @@ from .serializers import StudyGroupSerializer
 from rest_framework.permissions import IsAuthenticated
 from .models import StudyGroup, Subject, Assignment, Schedule
 from django.db.models import Sum
-import requests, json
+import json
 
 logger = logging.getLogger(__name__)
+
+def register(request):
+    if request.user.is_authenticated:
+        return redirect('home')
+    if request.method == 'POST':
+        form = RegisterForm(request.POST)
+        if form.is_valid():
+            user = form.save()
+            auth_login(request, user)
+            return redirect('home')
+    else:
+        form = RegisterForm()
+    return render(request, 'core/register.html', {'form': form})
 
 @login_required
 def home(request):
