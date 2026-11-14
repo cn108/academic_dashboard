@@ -5,7 +5,7 @@ from django.urls import include, path, re_path
 from django.views.static import serve as serve_media
 from rest_framework.routers import DefaultRouter
 
-from . import parents, views
+from . import learning, parents, quizzes, views
 
 router = DefaultRouter()
 router.register("sessions", views.AcademicSessionViewSet, basename="session")
@@ -19,6 +19,7 @@ router.register("assignments", views.AssignmentViewSet, basename="assignment")
 router.register("submissions", views.SubmissionViewSet, basename="submission")
 router.register("attendance", views.AttendanceViewSet, basename="attendance")
 router.register("schedule", views.ScheduleViewSet, basename="schedule")
+router.register("quizzes", quizzes.QuizViewSet, basename="quiz")
 
 urlpatterns = [
     path("api/health/", views.HealthView.as_view(), name="api-health"),
@@ -42,6 +43,21 @@ urlpatterns = [
         "api/students/<int:pk>/report-card/",
         views.StudentReportCardView.as_view(),
         name="api-student-report-card",
+    ),
+    path(
+        "api/lessons/<int:pk>/resources/",
+        learning.LessonResourcesView.as_view(),
+        name="lesson-resources",
+    ),
+    path(
+        "api/resources/<int:pk>/complete/",
+        learning.ResourceCompleteView.as_view(),
+        name="resource-complete",
+    ),
+    path(
+        "api/student/progress/dashboard/",
+        learning.StudentProgressDashboardView.as_view(),
+        name="student-progress-dashboard",
     ),
     path("api/parent/wards/", parents.ParentWardsView.as_view(), name="parent-wards"),
     path("api/parent/fees/", parents.ParentFeesView.as_view(), name="parent-fees"),

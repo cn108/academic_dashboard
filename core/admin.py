@@ -15,10 +15,15 @@ from .models import (
     Attendance,
     Fee,
     LessonNote,
+    LessonResource,
     NotificationLog,
     ParentStudentLink,
     Payment,
     Profile,
+    Question,
+    Quiz,
+    QuizAttempt,
+    ResourceProgress,
     Result,
     Schedule,
     School,
@@ -136,11 +141,58 @@ class ResultAdmin(admin.ModelAdmin):
     readonly_fields = ("total", "grade", "remarks", "published_at")
 
 
+class LessonResourceInline(admin.TabularInline):
+    model = LessonResource
+    extra = 0
+    fields = ("type", "title", "url", "file", "order_index")
+
+
 @admin.register(LessonNote)
 class LessonNoteAdmin(admin.ModelAdmin):
     list_display = ("subject", "week_number", "topic", "term", "status")
     list_filter = ("status", "subject__school_class", "term")
     search_fields = ("topic", "subject__name")
+    inlines = [LessonResourceInline]
+
+
+@admin.register(ResourceProgress)
+class ResourceProgressAdmin(admin.ModelAdmin):
+    list_display = ("student", "resource", "is_completed", "completed_at")
+    list_filter = ("is_completed", "resource__lesson__subject__school_class")
+    search_fields = ("student__username", "student__first_name", "resource__title")
+    readonly_fields = ("completed_at",)
+
+
+class QuestionInline(admin.TabularInline):
+    model = Question
+    extra = 0
+    fields = ("text", "options", "correct_option_index", "points")
+
+
+@admin.register(Quiz)
+class QuizAdmin(admin.ModelAdmin):
+    list_display = (
+        "title",
+        "subject",
+        "class_arm",
+        "status",
+        "time_limit_minutes",
+        "total_points",
+        "available_from",
+        "available_until",
+    )
+    list_filter = ("status", "class_arm", "subject")
+    search_fields = ("title", "subject__name", "class_arm__name")
+    readonly_fields = ("total_points", "created_at")
+    inlines = [QuestionInline]
+
+
+@admin.register(QuizAttempt)
+class QuizAttemptAdmin(admin.ModelAdmin):
+    list_display = ("quiz", "student", "status", "score", "started_at", "submitted_at")
+    list_filter = ("status", "quiz")
+    search_fields = ("student__username", "student__first_name", "quiz__title")
+    readonly_fields = ("started_at", "submitted_at", "score", "answers", "status")
 
 
 @admin.register(Announcement)

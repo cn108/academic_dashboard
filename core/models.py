@@ -446,6 +446,69 @@ class LessonNote(Publishable):
         return f"Week {self.week_number}: {self.topic}"
 
 
+class LessonResource(models.Model):
+    """Extra material attached to a lesson: a video, a link or a document."""
+
+    VIDEO = "video"
+    READING_LINK = "reading_link"
+    DOCUMENT = "document_attachment"
+    TYPE_CHOICES = [
+        (VIDEO, "Video"),
+        (READING_LINK, "Reading link"),
+        (DOCUMENT, "Document attachment"),
+    ]
+
+    lesson = models.ForeignKey(LessonNote, on_delete=models.CASCADE, related_name="resources")
+    type = models.CharField(max_length=25, choices=TYPE_CHOICES, default=READING_LINK)
+    title = models.CharField(max_length=200)
+    url = models.URLField(blank=True, help_text="Required for videos and reading links.")
+    file = models.FileField(
+        upload_to="lesson-resources/%Y/%m/",
+        blank=True,
+        help_text="Required for document attachments.",
+    )
+    order_index = models.PositiveSmallIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["order_index", "id"]
+
+    def __str__(self):
+        return f"{self.title} ({self.get_type_display()})"
+
+    def clean(self):
+        if self.type in (self.VIDEO, self.READING_LINK) and not self.url:
+            raise ValidationError({"url": "Add a link for a video or reading resource."})
+        if self.type == self.DOCUMENT and not self.file:
+            raise ValidationError({"file": "Attach a document for this resource."})
+
+
+class ResourceProgress(models.Model):
+    """A student's completion mark for one lesson resource."""
+
+    student = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="resource_progress"
+    )
+    resource = models.ForeignKey(LessonResource, on_delete=models.CASCADE, related_name="progress")
+    is_completed = models.BooleanField(default=False)
+    completed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["resource__order_index", "resource_id"]
+        constraints = [
+            models.UniqueConstraint(fields=["student", "resource"], name="unique_progress_per_resource")
+        ]
+
+    def __str__(self):
+        state = "done" if self.is_completed else "pending"
+        return f"{self.student.get_username()} → {self.resource.title} ({state})"
+
+    def save(self, *args, **kwargs):
+        if self.is_completed and self.completed_at is None:
+            self.completed_at = timezone.now()
+        super().save(*args, **kwargs)
+
+
 class Announcement(Publishable):
     """A notice for the whole school (no class) or for one class."""
 
@@ -754,6 +817,126 @@ class Payment(models.Model):
 
     def __str__(self):
         return f"{self.reference} {self.amount} ({self.status})"
+
+
+class QuizStatus(models.TextChoices):
+    DRAFT = "draft", "Draft"
+    PUBLISHED = "published", "Published"
+    CLOSED = "closed", "Closed"
+
+
+class QuizAttemptStatus(models.TextChoices):
+    IN_PROGRESS = "in_progress", "In progress"
+    AUTO_GRADED = "auto_graded", "Auto graded"
+
+
+class Quiz(models.Model):
+    """A timed multiple-choice test set by a teacher for one class arm."""
+
+    title = models.CharField(max_length=200)
+    subject = models.ForeignKey(Subject, on_delete=models.CASCADE, related_name="quizzes")
+    class_arm = models.ForeignKey(SchoolClass, on_delete=models.CASCADE, related_name="quizzes")
+    time_limit_minutes = models.PositiveSmallIntegerField(
+        default=10, validators=[MinValueValidator(1), MaxValueValidator(180)]
+    )
+    total_points = models.PositiveSmallIntegerField(default=0, editable=False)
+    status = models.CharField(max_length=10, choices=QuizStatus.choices, default=QuizStatus.DRAFT)
+    available_from = models.DateTimeField(null=True, blank=True)
+    available_until = models.DateTimeField(null=True, blank=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="quizzes_created",
+    )
+    created_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        ordering = ["-created_at"]
+        verbose_name_plural = "quizzes"
+
+    def __str__(self):
+        return f"{self.title} ({self.class_arm.name})"
+
+    @property
+    def is_open(self):
+        """Whether students may start the quiz right now."""
+        if self.status != QuizStatus.PUBLISHED:
+            return False
+        now = timezone.now()
+        if self.available_from and now < self.available_from:
+            return False
+        if self.available_until and now > self.available_until:
+            return False
+        return True
+
+    def clean(self):
+        if self.available_from and self.available_until and self.available_until < self.available_from:
+            raise ValidationError({"available_until": "The closing time must be after the opening time."})
+
+    def refresh_total_points(self):
+        total = self.questions.aggregate(total=models.Sum("points"))["total"] or 0
+        if total != self.total_points:
+            self.total_points = total
+            self.save(update_fields=["total_points"])
+
+
+class Question(models.Model):
+    """One multiple-choice question; exactly four options today."""
+
+    quiz = models.ForeignKey(Quiz, on_delete=models.CASCADE, related_name="questions")
+    text = models.TextField()
+    options = models.JSONField(default=list, help_text='Exactly four options, e.g. ["A", "B", "C", "D"].')
+    correct_option_index = models.PositiveSmallIntegerField(default=0, validators=[MaxValueValidator(3)])
+    points = models.PositiveSmallIntegerField(default=1, validators=[MinValueValidator(1)])
+
+    class Meta:
+        ordering = ["id"]
+
+    def __str__(self):
+        return f"{self.text[:60]} ({self.quiz.title})"
+
+    def clean(self):
+        if not isinstance(self.options, list) or len(self.options) != 4:
+            raise ValidationError({"options": "Provide exactly four options."})
+        if any(not str(option).strip() for option in self.options):
+            raise ValidationError({"options": "Options cannot be empty."})
+        if not 0 <= self.correct_option_index < len(self.options):
+            raise ValidationError({"correct_option_index": "Choose one of the four options."})
+
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+        self.quiz.refresh_total_points()
+
+    def delete(self, *args, **kwargs):
+        quiz = self.quiz
+        result = super().delete(*args, **kwargs)
+        quiz.refresh_total_points()
+        return result
+
+
+class QuizAttempt(models.Model):
+    """One student's sitting of one quiz."""
+
+    quiz = models.ForeignKey(Quiz, on_delete=models.CASCADE, related_name="attempts")
+    student = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="quiz_attempts"
+    )
+    started_at = models.DateTimeField(default=timezone.now)
+    submitted_at = models.DateTimeField(null=True, blank=True)
+    score = models.PositiveSmallIntegerField(default=0)
+    status = models.CharField(
+        max_length=20, choices=QuizAttemptStatus.choices, default=QuizAttemptStatus.IN_PROGRESS
+    )
+    answers = models.JSONField(default=dict, blank=True)
+
+    class Meta:
+        ordering = ["-started_at"]
+        constraints = [models.UniqueConstraint(fields=["quiz", "student"], name="unique_attempt_per_student")]
+
+    def __str__(self):
+        return f"{self.student.get_username()} → {self.quiz.title} ({self.score})"
 
 
 class NotificationLog(models.Model):

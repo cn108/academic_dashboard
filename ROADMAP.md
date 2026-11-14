@@ -32,6 +32,19 @@ Frontend (Angular 22 SPA)
 - [x] Broadsheet page, announcements editing, lesson-note attachments, upload validation
 - [x] Role-aware shell, budgeted low-bandwidth build (~304 kB initial / ~85 kB transfer)
 
+Version 1.5 — learning hub and timed assessments (backend)
+
+- [x] `LessonResource` (video, reading link, document) with ordering and type validation
+- [x] `ResourceProgress` per student/resource, idempotent completion endpoint
+- [x] Published-only, class-scoped resource API; drafts invisible to students
+- [x] Progress dashboard: current-term completion plus term-over-term averages from published results
+- [x] `Quiz`, `Question`, `QuizAttempt` with four-option questions and derived total points
+- [x] Teacher quiz CRUD, question entry, publish/close and attempt results with class average
+- [x] Server-enforced timer from `started_at` with a 60-second grace window
+- [x] Answer key stripped from every student-facing quiz payload
+- [x] 54 tests for resource visibility, completion, trends, grading and time expiry
+- [ ] Angular learning-hub and quiz interfaces
+
 Version 1.4 — school branding, Excel exports and the bursar's dashboard
 
 - [x] `School` profile (name, motto, address, contacts, logo, current session/term), editable in admin

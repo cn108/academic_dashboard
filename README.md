@@ -437,6 +437,15 @@ point the domain at it, then set `FRONTEND_URL=https://school.example`, `DJANGO_
 | `GET/POST /api/subjects/` | Subjects of the caller's class |
 | `GET/POST /api/results/` | `?session=&term=&subject=&student=`; students see published only |
 | `GET/POST /api/lesson-notes/` | Weekly notes with `?subject=&term=` |
+| `GET /api/lessons/{id}/resources/` | Videos, links and documents on a lesson, with the student's completion state (drafts hidden) |
+| `POST /api/resources/{id}/complete/` | Student marks a resource watched/read; idempotent |
+| `GET /api/student/progress/dashboard/` | Current-term completion percentage and term-over-term averages |
+| `GET/POST /api/quizzes/` | Teacher quizzes for their classes; students only see published/closed summaries |
+| `GET/POST /api/quizzes/{id}/questions/` | Teacher lists questions with answers, or adds one (four options) |
+| `POST /api/quizzes/{id}/publish/` · `/close/` | Publish a quiz with at least one question, or close it |
+| `POST /api/quizzes/{id}/start/` | Student starts/resumes an attempt; the answer key is never returned |
+| `POST /api/quizzes/{id}/submit/` | Server-graded answers, rejected after the limit plus 60s grace |
+| `GET /api/quizzes/{id}/attempts/` | Teacher results with pass/fail counts and class average |
 | `GET/POST /api/announcements/` | School-wide or class notices |
 | `GET/POST /api/assignments/` | `?class=&session=&term=` |
 | `GET/POST /api/submissions/` | Students upload; teachers list their class |

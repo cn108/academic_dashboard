@@ -9,7 +9,10 @@ from .models import (
     Assignment,
     Attendance,
     LessonNote,
+    LessonResource,
     Profile,
+    Question,
+    Quiz,
     Result,
     Schedule,
     SchoolClass,
@@ -184,6 +187,148 @@ class LessonNoteSerializer(serializers.ModelSerializer):
             "created_at",
         ]
         read_only_fields = ["published_at", "created_at"]
+
+
+class LessonResourceSerializer(serializers.ModelSerializer):
+    """A lesson resource plus the requesting student's completion mark."""
+
+    type_label = serializers.CharField(source="get_type_display", read_only=True)
+    file_url = serializers.SerializerMethodField()
+    is_completed = serializers.SerializerMethodField()
+    completed_at = serializers.SerializerMethodField()
+
+    class Meta:
+        model = LessonResource
+        fields = [
+            "id",
+            "lesson",
+            "type",
+            "type_label",
+            "title",
+            "url",
+            "file_url",
+            "order_index",
+            "is_completed",
+            "completed_at",
+        ]
+
+    def get_file_url(self, obj) -> str | None:
+        if not obj.file:
+            return None
+        request = self.context.get("request")
+        return request.build_absolute_uri(obj.file.url) if request else obj.file.url
+
+    def _progress(self, obj):
+        return self.context.get("progress", {}).get(obj.pk)
+
+    def get_is_completed(self, obj) -> bool:
+        row = self._progress(obj)
+        return bool(row and row.is_completed)
+
+    def get_completed_at(self, obj):
+        row = self._progress(obj)
+        return row.completed_at if row else None
+
+
+class QuestionSerializer(serializers.ModelSerializer):
+    """Teacher-facing question, including the correct answer."""
+
+    class Meta:
+        model = Question
+        fields = ["id", "quiz", "text", "options", "correct_option_index", "points"]
+        read_only_fields = ["quiz"]
+
+    def validate_options(self, value):
+        if not isinstance(value, list) or len(value) != 4:
+            raise serializers.ValidationError("Provide exactly four options.")
+        options = [str(option).strip() for option in value]
+        if any(not option for option in options):
+            raise serializers.ValidationError("Options cannot be empty.")
+        return options
+
+    def validate(self, attrs):
+        options = attrs.get("options", getattr(self.instance, "options", []))
+        index = attrs.get("correct_option_index", getattr(self.instance, "correct_option_index", None))
+        if index is None or not 0 <= index < len(options):
+            raise serializers.ValidationError({"correct_option_index": "Choose one of the four options."})
+        return attrs
+
+
+class QuestionStudentSerializer(serializers.ModelSerializer):
+    """What a student may see while taking a quiz: no correct answer."""
+
+    class Meta:
+        model = Question
+        fields = ["id", "text", "options", "points"]
+
+
+class QuizSerializer(serializers.ModelSerializer):
+    """Teacher-facing quiz, with its questions and their answers."""
+
+    subject_name = serializers.CharField(source="subject.name", read_only=True)
+    class_name = serializers.CharField(source="class_arm.name", read_only=True)
+    questions_count = serializers.IntegerField(source="questions.count", read_only=True)
+    questions = QuestionSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = Quiz
+        fields = [
+            "id",
+            "title",
+            "subject",
+            "subject_name",
+            "class_arm",
+            "class_name",
+            "time_limit_minutes",
+            "total_points",
+            "status",
+            "available_from",
+            "available_until",
+            "questions_count",
+            "questions",
+            "created_at",
+        ]
+        read_only_fields = ["total_points", "created_at"]
+
+    def validate(self, attrs):
+        class_arm = attrs.get("class_arm", getattr(self.instance, "class_arm", None))
+        subject = attrs.get("subject", getattr(self.instance, "subject", None))
+        if class_arm and subject and subject.school_class_id != class_arm.pk:
+            raise serializers.ValidationError({"subject": "That subject is not taught in this class."})
+
+        start = attrs.get("available_from", getattr(self.instance, "available_from", None))
+        end = attrs.get("available_until", getattr(self.instance, "available_until", None))
+        if start and end and end < start:
+            raise serializers.ValidationError(
+                {"available_until": "The closing time must be after the opening time."}
+            )
+        return attrs
+
+
+class StudentQuizSerializer(serializers.ModelSerializer):
+    """Student-facing quiz summary; never includes questions or answers."""
+
+    subject_name = serializers.CharField(source="subject.name", read_only=True)
+    class_name = serializers.CharField(source="class_arm.name", read_only=True)
+    questions_count = serializers.IntegerField(source="questions.count", read_only=True)
+
+    class Meta:
+        model = Quiz
+        fields = [
+            "id",
+            "title",
+            "subject",
+            "subject_name",
+            "class_arm",
+            "class_name",
+            "time_limit_minutes",
+            "total_points",
+            "status",
+            "available_from",
+            "available_until",
+            "questions_count",
+            "created_at",
+        ]
 
 
 class AnnouncementSerializer(serializers.ModelSerializer):
