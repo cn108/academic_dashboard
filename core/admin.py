@@ -15,6 +15,7 @@ from .models import (
     Attendance,
     Fee,
     LessonNote,
+    NotificationLog,
     ParentStudentLink,
     Payment,
     Profile,
@@ -38,6 +39,8 @@ class ProfileInline(admin.StackedInline):
         "gender",
         "school_class",
         "must_change_password",
+        "phone_number",
+        "phone_verified",
     )
 
 
@@ -143,6 +146,18 @@ class AttendanceAdmin(admin.ModelAdmin):
     list_display = ("school_class", "student", "date", "status")
     list_filter = ("status", "school_class")
     date_hierarchy = "date"
+
+
+@admin.register(NotificationLog)
+class NotificationLogAdmin(admin.ModelAdmin):
+    list_display = ("recipient", "channel", "event_type", "status", "external_id", "created_at")
+    list_filter = ("channel", "event_type", "status")
+    search_fields = ("recipient__username", "recipient__first_name", "external_id")
+    readonly_fields = ("recipient", "channel", "event_type", "payload", "status", "external_id")
+    date_hierarchy = "created_at"
+
+    def has_add_permission(self, request):
+        return False
 
 
 @admin.register(ParentStudentLink)

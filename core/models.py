@@ -87,6 +87,12 @@ class Profile(models.Model):
         related_name="students",
     )
     must_change_password = models.BooleanField(default=False)
+    phone_number = models.CharField(
+        max_length=20,
+        blank=True,
+        help_text="Nigerian mobile number used for SMS and WhatsApp alerts.",
+    )
+    phone_verified = models.BooleanField(default=False)
 
     def __str__(self):
         return f"{self.user.get_username()} ({self.role})"
@@ -665,3 +671,42 @@ class Payment(models.Model):
 
     def __str__(self):
         return f"{self.reference} {self.amount} ({self.status})"
+
+
+class NotificationLog(models.Model):
+    """One automated message to one parent, however it was delivered."""
+
+    SMS = "sms"
+    WHATSAPP = "whatsapp"
+    EMAIL = "email"
+    CHANNEL_CHOICES = [(SMS, "SMS"), (WHATSAPP, "WhatsApp"), (EMAIL, "Email")]
+
+    ABSENCE = "absence_alert"
+    PAYMENT = "payment_receipt"
+    RESULT = "result_published"
+    EVENT_CHOICES = [(ABSENCE, "Absence alert"), (PAYMENT, "Payment receipt"), (RESULT, "Result published")]
+
+    PENDING = "pending"
+    SENT = "sent"
+    FAILED = "failed"
+    STATUS_CHOICES = [(PENDING, "Pending"), (SENT, "Sent"), (FAILED, "Failed")]
+
+    recipient = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="notifications"
+    )
+    channel = models.CharField(max_length=10, choices=CHANNEL_CHOICES)
+    event_type = models.CharField(max_length=30, choices=EVENT_CHOICES)
+    payload = models.JSONField(default=dict, blank=True)
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default=PENDING)
+    external_id = models.CharField(max_length=100, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["event_type", "status"], name="notif_event_status_idx"),
+            models.Index(fields=["recipient", "created_at"], name="notif_recipient_idx"),
+        ]
+
+    def __str__(self):
+        return f"{self.event_type} → {self.recipient.get_username()} ({self.channel}, {self.status})"

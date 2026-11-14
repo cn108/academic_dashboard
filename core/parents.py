@@ -324,12 +324,14 @@ class PaystackWebhookView(APIView):
                 payment.save(update_fields=["status"])
                 return Response({"status": "rejected"})
 
-            payment.status = Payment.SUCCESS
-            payment.paid_at = timezone.now()
-            payment.save(update_fields=["status", "paid_at"])
-
+            # Credit the fee first: the payment's post_save signal builds the
+            # receipt from the fee's new balance.
             student_fee = payment.student_fee
             student_fee.amount_paid = student_fee.amount_paid + payment.amount
             student_fee.save()
+
+            payment.status = Payment.SUCCESS
+            payment.paid_at = timezone.now()
+            payment.save(update_fields=["status", "paid_at"])
 
         return Response({"status": "ok"})

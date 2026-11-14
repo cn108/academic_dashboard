@@ -12,7 +12,7 @@ class, a broadsheet for the whole class, results keyed in from a spreadsheet, an
 ![DRF](https://img.shields.io/badge/DRF-3.17-A30000)
 ![Angular](https://img.shields.io/badge/Angular-22-DD0031)
 ![Python](https://img.shields.io/badge/Python-3.12-3776AB)
-![Tests](https://img.shields.io/badge/tests-136%20passing-success)
+![Tests](https://img.shields.io/badge/tests-155%20passing-success)
 ![PWA](https://img.shields.io/badge/PWA-offline--ready-5A0FC8)
 ![Paystack](https://img.shields.io/badge/payments-Paystack-00C3F7)
 
@@ -36,6 +36,9 @@ class, a broadsheet for the whole class, results keyed in from a spreadsheet, an
   ("12th out of 13 students"), affective and psychomotor domains, class teacher's and principal's
   remarks, next term fees and resumption date. Students print their own; the browser's "Save as PDF"
   does the rest, so no server-side PDF toolchain is needed.
+- **Automated parent alerts** — an absence, a successful fee payment or a published result reaches
+  the parent's phone by SMS or WhatsApp without a teacher writing a message. Delivery is logged and
+  the school administrator can see the delivery rate.
 - **Offline-first** — the SPA is an installable PWA. The app shell, icons and fonts are cached, and
   previously loaded results, notes and assignments remain readable when the connection drops.
 
@@ -228,6 +231,29 @@ fee, and it uses the amount recorded on the `Payment` (never a client-supplied f
 To verify without a Paystack account, tests stub the initialize call and sign webhook bodies with the
 same secret, so `pytest tests/test_api_paystack.py` exercises the full credit path offline.
 
+### Automated SMS and WhatsApp alerts
+
+The notification engine (`core/notifications.py`) listens to Django signals and messages the linked
+parents through one provider-agnostic service:
+
+| Trigger | Message |
+| --- | --- |
+| `Attendance` saved as **absent** | *Dear Parent, Chidera Okafor was marked absent today, 13 Nov 2026. Please contact the school.* |
+| `Payment` becomes **success** | *Receipt: We have received ₦20,000.00 for Chidera Okafor's First Term fees. Outstanding balance: ₦25,000.00.* |
+| `Result` **published** | *Dear Parent, First Term results for JSS 2A have been published. Please log in to view.* |
+
+- **Channel**: WhatsApp when `WHATSAPP_ENABLED=True` and the parent has a phone number, SMS otherwise,
+  email as a last resort. A parent with no phone or email is skipped without breaking the save.
+- **No duplicate spam**: one absence alert per child per day, one receipt per payment, and one result
+  announcement per parent per class and term.
+- **Provider**: `MockProvider` currently logs the message to the console and stores `status='sent'` with
+  a `mock-…` external id. Swap `get_provider()` for a Termii or Twilio client when
+  `TERMII_API_KEY` is provisioned; nothing else changes.
+- **History and rates**: every attempt is a `NotificationLog` row, visible in `/admin/` and through
+  `GET /api/notifications/logs/` (staff only) with totals, delivery rate and counts by channel/event.
+- Parents' numbers live on `Profile.phone_number` (with `phone_verified`); the demo parent has
+  `08031234567`, so `seed_demo` produces real log entries for its absence and payment.
+
 ## Production deployment
 
 The production stack is three containers behind Nginx:
@@ -295,6 +321,9 @@ docker compose down -v                   # stop and delete database + media
 | `SCHOOL_NAME` | `Model Secondary School` | Masthead on report cards. |
 | `SECURE_SSL_REDIRECT` | `False` | Set `True` once HTTPS terminates in front of Nginx (also enables secure cookies and HSTS). |
 | `PAYSTACK_SECRET_KEY` | empty | Paystack key used to start transactions and verify webhooks. Empty disables payments with a readable message. |
+| `TERMII_API_KEY` | empty | SMS/WhatsApp gateway key; while empty the mock provider logs messages instead of sending. |
+| `TERMII_SENDER_ID` | `SchoolPortal` | Sender name shown on the parent's phone. |
+| `WHATSAPP_ENABLED` | `False` | Prefer WhatsApp over SMS when the parent has a number. |
 | `PAYSTACK_PUBLIC_KEY` | empty | Paystack public key, kept for inline checkout usage. |
 | `SERVE_MEDIA` | `True` (compose) | Let Django deliver `/media/`; disable when moving uploads to object storage. |
 
@@ -324,6 +353,7 @@ point the domain at it, then set `FRONTEND_URL=https://school.example`, `DJANGO_
 | `GET /api/parent/payments/` | The parent's payment history |
 | `POST /api/payments/initialize/` | `{student_fee_id, amount?}` → Paystack checkout URL, pending `Payment` created |
 | `POST /api/webhooks/paystack/` | Signature-verified `charge.success` handler; credits the fee |
+| `GET /api/notifications/logs/` | Staff-only delivery history, rates and counts by channel/event |
 | `GET/POST /api/subjects/` | Subjects of the caller's class |
 | `GET/POST /api/results/` | `?session=&term=&subject=&student=`; students see published only |
 | `GET/POST /api/lesson-notes/` | Weekly notes with `?subject=&term=` |
@@ -345,7 +375,7 @@ and content they own; anything else returns `404` (not visible) or `403` (visibl
 ## Tests and quality gates
 
 ```bash
-pytest                                   # 136 tests
+pytest                                   # 155 tests
 pytest --cov
 ruff check . && ruff format --check .
 mypy core academic_dashboard
@@ -369,6 +399,7 @@ core/
   views.py            viewsets with the publishing and class-scoping rules
   parents.py          parent portal endpoints and the Paystack webhook
   paystack.py         initialize-transaction client, HMAC SHA512 signature helpers
+  notifications.py    SMS/WhatsApp service, mock provider and signal triggers
   reports.py          broadsheet, ranking and report-card maths
   templates/reports/  print-optimised report card
   serializers.py      API representations and validation
@@ -398,6 +429,8 @@ docker-compose.yml    PostgreSQL + backend + Nginx production stack
   never queued silently, so nothing pretends to be saved.
 - **Money moves only on a verified webhook.** The browser can start a Paystack transaction, but a fee
   is credited solely by a correctly signed `charge.success` event, once per reference.
+- **Notifications never break the request.** Signal handlers catch provider and data errors, record a
+  failed log and let the attendance save, payment or publish continue.
 
 ## Not built yet
 

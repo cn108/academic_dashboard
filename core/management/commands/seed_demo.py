@@ -175,7 +175,14 @@ class Command(BaseCommand):
         )
         parent.set_password(PARENT_PASSWORD)
         parent.save()
-        Profile.objects.update_or_create(user=parent, defaults={"role": Profile.PARENT})
+        Profile.objects.update_or_create(
+            user=parent,
+            defaults={
+                "role": Profile.PARENT,
+                "phone_number": "08031234567",
+                "phone_verified": True,
+            },
+        )
         for ward in (students[0], students[2]):
             ParentStudentLink.objects.update_or_create(
                 parent=parent,

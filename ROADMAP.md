@@ -32,6 +32,16 @@ Frontend (Angular 22 SPA)
 - [x] Broadsheet page, announcements editing, lesson-note attachments, upload validation
 - [x] Role-aware shell, budgeted low-bandwidth build (~304 kB initial / ~85 kB transfer)
 
+Version 1.2 — automated parent notifications
+
+- [x] `NotificationLog` (recipient, channel, event, payload, status, external id) and `Profile.phone_number`
+- [x] Provider-agnostic service with a console `MockProvider`; Termii/Twilio is a one-function swap
+- [x] Signal triggers: absent attendance, successful payment receipt, published result (once per term)
+- [x] Dedupe so a re-saved register or replayed webhook does not spam parents
+- [x] Missing phone/email and provider outages are skipped or recorded, never raised to the caller
+- [x] `GET /api/notifications/logs/` delivery dashboard for staff, plus admin history
+- [x] 19 new tests for the service, triggers, dedupe and delivery rates
+
 Version 1.1 — parent portal and school fees
 
 - [x] `parent` role on `Profile`, `ParentStudentLink` for one parent → many wards
@@ -123,6 +133,8 @@ The printable document parents expect at the end of term.
 - [ ] Fee reminders to parents before the term's deadline
 - [ ] Whole-school finance report (billed, collected, outstanding per term)
 - [ ] Parent-teacher message thread
+- [ ] Termii/Twilio provider implementation and phone verification (OTP)
+- [ ] Notification preferences per parent and quiet hours
 
 ## Ground rules
 

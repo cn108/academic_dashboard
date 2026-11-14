@@ -21,7 +21,7 @@ from rest_framework import viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
-from rest_framework.permissions import SAFE_METHODS, AllowAny, IsAuthenticated
+from rest_framework.permissions import SAFE_METHODS, AllowAny, IsAdminUser, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -35,6 +35,7 @@ from .models import (
     Assignment,
     Attendance,
     LessonNote,
+    NotificationLog,
     ParentStudentLink,
     Profile,
     PublishStatus,
@@ -901,6 +902,58 @@ class AttendanceViewSet(viewsets.ModelViewSet):
             )
             entry[row["status"]] = row["total"]
         return Response(list(summary.values()))
+
+
+class NotificationLogsView(APIView):
+    """Delivery history and rates for the school's superadmin."""
+
+    permission_classes = [IsAdminUser]
+
+    def get(self, request):
+        logs = NotificationLog.objects.select_related("recipient")
+        for field in ("event_type", "channel", "status"):
+            value = request.query_params.get(field)
+            if value:
+                logs = logs.filter(**{field: value})
+
+        total = logs.count()
+        sent = logs.filter(status=NotificationLog.SENT).count()
+        failed = logs.filter(status=NotificationLog.FAILED).count()
+        pending = logs.filter(status=NotificationLog.PENDING).count()
+
+        def grouped(field: str) -> dict:
+            return {row[field]: row["count"] for row in logs.values(field).annotate(count=Count("id"))}
+
+        rows = []
+        for log in logs.order_by("-created_at")[:100]:
+            rows.append(
+                {
+                    "id": log.pk,
+                    "recipient": log.recipient.get_username(),
+                    "recipient_name": log.recipient.get_full_name() or log.recipient.username,
+                    "channel": log.channel,
+                    "event_type": log.event_type,
+                    "status": log.status,
+                    "external_id": log.external_id,
+                    "message": log.payload.get("message", ""),
+                    "created_at": log.created_at,
+                }
+            )
+
+        return Response(
+            {
+                "summary": {
+                    "total": total,
+                    "sent": sent,
+                    "failed": failed,
+                    "pending": pending,
+                    "delivery_rate": round(sent / total * 100, 1) if total else None,
+                    "by_channel": grouped("channel"),
+                    "by_event": grouped("event_type"),
+                },
+                "logs": rows,
+            }
+        )
 
 
 class StudentReportCardView(APIView):

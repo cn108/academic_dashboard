@@ -40,6 +40,9 @@ services:
       LOG_LEVEL: INFO
       PAYSTACK_SECRET_KEY: ${PAYSTACK_SECRET_KEY:-}
       PAYSTACK_PUBLIC_KEY: ${PAYSTACK_PUBLIC_KEY:-}
+      TERMII_API_KEY: ${TERMII_API_KEY:-}
+      TERMII_SENDER_ID: ${TERMII_SENDER_ID:-SchoolPortal}
+      WHATSAPP_ENABLED: ${WHATSAPP_ENABLED:-False}
     volumes:
       - media:/app/media
     expose:

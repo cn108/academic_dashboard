@@ -44,6 +44,11 @@ urlpatterns = [
     ),
     path("api/token/", views.TokenLoginView.as_view(), name="token_obtain_pair"),
     path("api/token/refresh/", views.TokenRefreshAPIView.as_view(), name="token_refresh"),
+    path(
+        "api/notifications/logs/",
+        views.NotificationLogsView.as_view(),
+        name="notification-logs",
+    ),
     path("api/", include(router.urls)),
 ]
 
