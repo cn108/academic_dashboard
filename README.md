@@ -129,6 +129,9 @@ Seed credentials:
 | `GET /api/sessions/`, `/api/terms/`, `/api/terms/current/` | Academic calendar |
 | `GET/POST /api/classes/` | Class list (teacher: own, student: theirs); create is admin-only |
 | `POST /api/classes/{id}/import-students/` | CSV/JSON student onboarding, capacity-checked |
+| `GET /api/classes/{id}/broadsheet/?session=&term=` | Students × subjects totals, averages, class averages and positions (published only) |
+| `GET /api/classes/{id}/results/template/` | Blank CSV: `Admission Number, Subject, CA1, CA2, CA3, Exam` |
+| `POST /api/classes/{id}/results/bulk-import/` | Upsert results from that CSV; new rows stay drafts, row-level errors reported |
 | `GET/POST /api/subjects/` | Subjects of the caller's class |
 | `GET/POST /api/results/` | `?session=&term=&subject=&student=`; students see published only |
 | `GET/POST /api/lesson-notes/` | Weekly notes with `?subject=&term=` |

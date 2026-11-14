@@ -13,10 +13,13 @@ from django.contrib.auth.models import User
 from django.core.exceptions import PermissionDenied
 from django.db import transaction
 from django.db.models import Count, Q
+from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
+from django.utils.text import slugify
 from rest_framework import viewsets
 from rest_framework.decorators import action
+from rest_framework.exceptions import ValidationError
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.permissions import SAFE_METHODS, AllowAny, IsAuthenticated
 from rest_framework.response import Response
@@ -25,6 +28,8 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
 from .models import (
+    CA_MAX,
+    EXAM_MAX,
     AcademicSession,
     Announcement,
     Assignment,
@@ -42,6 +47,7 @@ from .models import (
     role_of,
 )
 from .permissions import IsStaffOrReadOnly, IsTeacher
+from .reports import build_broadsheet
 from .serializers import (
     AcademicSessionSerializer,
     AnnouncementSerializer,
@@ -58,6 +64,8 @@ from .serializers import (
     SubmissionSerializer,
     TermSerializer,
 )
+
+RESULT_IMPORT_COLUMNS = ["Admission Number", "Subject", "CA1", "CA2", "CA3", "Exam"]
 
 
 # ---------------------------------------------------------------------------
@@ -89,6 +97,29 @@ def normalise_gender(value) -> str:
     if text.startswith("f"):
         return Profile.FEMALE
     return ""
+
+
+def resolve_period(request) -> tuple[AcademicSession, Term]:
+    """Return the (session, term) a report or import is about.
+
+    An explicit ``term`` wins; otherwise the current term is used. A supplied
+    ``session`` must agree with the term's own session.
+    """
+    term_id = request.query_params.get("term")
+    session_id = request.query_params.get("session")
+
+    if term_id:
+        term = Term.objects.select_related("session").filter(pk=term_id).first()
+        if term is None:
+            raise ValidationError({"term": "No such term."})
+    else:
+        term = Term.current()
+        if term is None:
+            raise ValidationError({"term": "No current term is set."})
+
+    if session_id and str(session_id) != str(term.session_id):
+        raise ValidationError({"session": "That session does not match the term."})
+    return term.session, term
 
 
 def split_name(full_name: str) -> tuple[str, str]:
@@ -515,6 +546,184 @@ class SchoolClassViewSet(viewsets.ModelViewSet):
             if any(row.values()):
                 rows.append(row)
         return rows
+
+    # ------------------------------------------------------------------
+    # Term reporting and bulk result entry
+    # ------------------------------------------------------------------
+    @action(detail=True, methods=["get"])
+    def broadsheet(self, request, pk=None):
+        """Students × subjects totals, averages and class positions."""
+        school_class = self.get_object()
+        if not school_class.can_manage(request.user):
+            raise PermissionDenied("Only the class teacher or a principal can open the broadsheet.")
+        session, term = resolve_period(request)
+        return Response(build_broadsheet(school_class, session, term))
+
+    @action(detail=True, methods=["get"], url_path="results/template")
+    def results_template(self, request, pk=None):
+        """A blank CSV with the columns the importer expects."""
+        school_class = self.get_object()
+        if not school_class.can_manage(request.user):
+            raise PermissionDenied("Only the class teacher can download a result template.")
+        _session, term = resolve_period(request)
+
+        response = HttpResponse(content_type="text/csv")
+        filename = f"results-template-{slugify(school_class.name)}-term-{term.pk}.csv"
+        response["Content-Disposition"] = f'attachment; filename="{filename}"'
+        writer = csv.writer(response)
+        writer.writerow(RESULT_IMPORT_COLUMNS)
+        return response
+
+    @action(
+        detail=True,
+        methods=["post"],
+        url_path="results/bulk-import",
+        parser_classes=[MultiPartParser, FormParser, JSONParser],
+    )
+    def bulk_import_results(self, request, pk=None):
+        """Create or update results from a CSV (or a JSON ``rows`` array).
+
+        New rows are saved as drafts so the teacher reviews them before
+        publishing; existing rows keep whatever status they already had.
+        Valid rows are imported even when other rows fail validation.
+        """
+        school_class = self.get_object()
+        if not school_class.can_manage(request.user):
+            raise PermissionDenied("Only the class teacher can import results.")
+        session, term = resolve_period(request)
+
+        numbered_rows = self._extract_result_rows(request)
+        if numbered_rows is None:
+            return Response(
+                {
+                    "detail": "Upload a CSV with columns "
+                    + ", ".join(RESULT_IMPORT_COLUMNS)
+                    + ", or send a 'rows' array."
+                },
+                status=400,
+            )
+        if not numbered_rows:
+            return Response({"detail": "No result rows found."}, status=400)
+
+        students = {
+            profile.admission_number.strip().upper(): profile.user
+            for profile in school_class.students.select_related("user")
+            if profile.admission_number
+        }
+        subjects = {subject.name.strip().lower(): subject for subject in school_class.subjects.all()}
+
+        created = 0
+        updated = 0
+        errors: list[dict] = []
+
+        with transaction.atomic():
+            for line_number, row in numbered_rows:
+                cleaned, reason = self._clean_result_row(row, students, subjects)
+                if reason:
+                    errors.append({"row": line_number, "reason": reason})
+                    continue
+
+                student, subject, scores = cleaned
+                result = Result.objects.filter(
+                    student=student, subject=subject, session=session, term=term
+                ).first()
+                if result is None:
+                    result = Result(student=student, subject=subject, session=session, term=term)
+                    created += 1
+                else:
+                    updated += 1
+
+                for field, value in scores.items():
+                    setattr(result, field, value)
+                result.created_by = request.user
+                # save() recomputes total, grade and remark from the components.
+                result.save()
+
+        return Response(
+            {
+                "class": {"id": school_class.pk, "name": school_class.name},
+                "session": {"id": session.pk, "name": session.name},
+                "term": {"id": term.pk, "name": term.name},
+                "created": created,
+                "updated": updated,
+                "errors": errors,
+                "total_rows": len(numbered_rows),
+            }
+        )
+
+    def _extract_result_rows(self, request):
+        upload = request.FILES.get("file")
+        if upload is not None:
+            return self._result_rows_from_csv(upload)
+        rows = request.data.get("rows")
+        if isinstance(rows, list):
+            return [(index + 2, row) for index, row in enumerate(rows) if isinstance(row, dict)]
+        return None
+
+    def _result_rows_from_csv(self, upload):
+        raw = upload.read()
+        text = raw.decode("utf-8-sig", errors="replace") if isinstance(raw, bytes) else raw
+        reader = csv.DictReader(io.StringIO(text))
+        headings = {
+            (name or "").strip().lower().replace("_", " ").replace("-", " ")
+            for name in reader.fieldnames or []
+        }
+        if not headings & {"admission number", "admission no", "admission"}:
+            raise ValidationError({"file": "The CSV needs an Admission Number column."})
+
+        rows = []
+        for index, raw_row in enumerate(reader, start=2):
+            row = {}
+            for key, value in raw_row.items():
+                if key is None:
+                    continue
+                column = key.strip().lower().replace("_", " ").replace("-", " ")
+                text_value = (value or "").strip()
+                if column in {"admission number", "admission no", "admission"}:
+                    row["admission_number"] = text_value
+                elif column == "subject":
+                    row["subject"] = text_value
+                elif column in {"ca1", "ca2", "ca3", "exam"}:
+                    row[column] = text_value
+            if any(str(value).strip() for value in row.values()):
+                rows.append((index, row))
+        return rows
+
+    def _clean_result_row(self, row, students, subjects):
+        """Return ``((student, subject, scores), "")`` or ``(None, reason)``."""
+        admission = str(row.get("admission_number", "")).strip()
+        if not admission:
+            return None, "Admission number is required."
+        student = students.get(admission.upper())
+        if student is None:
+            return None, f"Admission number {admission} is not in this class."
+
+        subject_name = str(row.get("subject", "")).strip()
+        if not subject_name:
+            return None, "Subject is required."
+        subject = subjects.get(subject_name.lower())
+        if subject is None:
+            return None, f"{subject_name} is not taught in this class."
+
+        scores = {}
+        for field in ("ca1", "ca2", "ca3", "exam"):
+            label = "Exam" if field == "exam" else field.upper()
+            raw = str(row.get(field, "")).strip()
+            maximum = EXAM_MAX if field == "exam" else CA_MAX[field]
+            if raw == "":
+                scores[field] = 0
+                continue
+            try:
+                value = int(raw)
+            except ValueError:
+                return None, f"{label} must be a whole number."
+            if value < 0:
+                return None, f"{label} cannot be negative."
+            if value > maximum:
+                return None, f"{label} score {value} exceeds maximum of {maximum}."
+            scores[field] = value
+
+        return (student, subject, scores), ""
 
 
 class SubjectViewSet(viewsets.ModelViewSet):
