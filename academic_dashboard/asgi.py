@@ -1,16 +1,9 @@
-"""
-ASGI config for academic_dashboard project.
-
-It exposes the ASGI callable as a module-level variable named ``application``.
-
-For more information on this file, see
-https://docs.djangoproject.com/en/5.0/howto/deployment/asgi/
-"""
+"""ASGI config — HTTP only; the API no longer exposes WebSockets."""
 
 import os
 
 from django.core.asgi import get_asgi_application
 
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'academic_dashboard.settings')
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "academic_dashboard.settings")
 
 application = get_asgi_application()

@@ -1,0 +1,48 @@
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "academic_dashboard.settings"
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+addopts = "-q --strict-markers"
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+filterwarnings = [
+    "error::DeprecationWarning:core.*",
+    # Legacy migrations (0009/0010) declare naive datetime.now column defaults;
+    # they are only evaluated while building a fresh database.
+    "ignore:DateTimeField .* received a naive datetime:RuntimeWarning",
+]
+env = [
+    "DEBUG=True",
+    "SECRET_KEY=pytest-secret-key-not-for-production",
+    "ALLOWED_HOSTS=localhost,127.0.0.1,testserver",
+    "AXES_ENABLED=False",
+    "EMAIL_BACKEND=django.core.mail.backends.locmem.EmailBackend",
+    "DATABASE_URL=sqlite:///db.sqlite3",
+]
+
+[tool.coverage.run]
+source = ["core", "academic_dashboard"]
+omit = ["*/migrations/*", "*/tests/*", "manage.py", "academic_dashboard/asgi.py"]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true
+
+[tool.ruff]
+line-length = 110
+target-version = "py312"
+exclude = ["**/migrations/**"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.ruff.lint.per-file-ignores]
+"academic_dashboard/settings.py" = ["E501"]
+
+[tool.mypy]
+plugins = ["mypy_django_plugin.main"]
+ignore_missing_imports = true
+exclude = ["migrations/", "tests/"]
+
+[tool.django-stubs]
+django_settings_module = "academic_dashboard.settings"

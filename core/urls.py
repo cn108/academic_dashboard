@@ -1,39 +1,28 @@
-# urls.py
-from django.urls import path, include
-from django.contrib.auth import views as auth_views
+"""URL configuration for the core app — a headless JSON API."""
+
+from django.urls import include, path
 from rest_framework.routers import DefaultRouter
-from .views import StudyGroupViewSet
+
 from . import views
-from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
 router = DefaultRouter()
-router.register(r'study-groups', StudyGroupViewSet)
-
+router.register("sessions", views.AcademicSessionViewSet, basename="session")
+router.register("terms", views.TermViewSet, basename="term")
+router.register("classes", views.SchoolClassViewSet, basename="class")
+router.register("subjects", views.SubjectViewSet, basename="subject")
+router.register("results", views.ResultViewSet, basename="result")
+router.register("lesson-notes", views.LessonNoteViewSet, basename="lesson-note")
+router.register("announcements", views.AnnouncementViewSet, basename="announcement")
+router.register("assignments", views.AssignmentViewSet, basename="assignment")
+router.register("submissions", views.SubmissionViewSet, basename="submission")
+router.register("attendance", views.AttendanceViewSet, basename="attendance")
+router.register("schedule", views.ScheduleViewSet, basename="schedule")
 
 urlpatterns = [
-    path('', views.home, name='home'),
-    path('login/', auth_views.LoginView.as_view(template_name='core/login.html'), name='login'),
-    path('logout/', auth_views.LogoutView.as_view(), name='logout'),
-    path('register/', views.register, name='register'),
-    path('api/', include(router.urls)),
-    path('api-auth/', include('rest_framework.urls')),
-    path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
-    path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),  
-    path('schedule/', views.schedule, name='schedule'),
-    path('assignments/edit/<int:assignment_id>/', views.edit_assignment, name='edit_assignment'),
-    path('assignments/delete/<int:assignment_id>/', views.delete_assignment, name='delete_assignment'),
-    path('assignments/', views.assignments, name='assignments'),
-    path('study-groups/', views.study_groups, name='study_groups'),
-    path('create-study-group/', views.create_study_group, name='create_study_group'),
-    path('edit-study-group/<int:pk>/', views.edit_study_group, name='edit_study_group'),
-    path('delete-study-group/<int:pk>/', views.delete_study_group, name='delete_study_group'),
-    path('study-group-data/', views.study_group_data, name='study_group_data'),
-    path('search/', views.search_study_groups, name='search_study_groups'),
-    path('grades/', views.grades, name='grades'),
-    path('grades/update/<int:pk>/', views.update_grade, name='update_grade'),
-    path('grades/delete/<int:pk>/', views.delete_grade, name='delete_grade'),
-    path('schedule/add/', views.add_schedule, name='add_schedule'),
-    path('schedule-get/', views.get_schedules, name='get_schedules'),
-    path('schedule/update/<int:id>/', views.update_schedule, name='update_schedule'),
-    path('schedule/delete/<int:id>/', views.delete_schedule, name='delete_schedule'),
+    path("api/health/", views.HealthView.as_view(), name="api-health"),
+    path("api/me/", views.MeView.as_view(), name="api-me"),
+    path("api/me/password/", views.PasswordChangeView.as_view(), name="api-password-change"),
+    path("api/token/", views.TokenLoginView.as_view(), name="token_obtain_pair"),
+    path("api/token/refresh/", views.TokenRefreshAPIView.as_view(), name="token_refresh"),
+    path("api/", include(router.urls)),
 ]
