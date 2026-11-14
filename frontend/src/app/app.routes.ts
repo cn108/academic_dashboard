@@ -101,6 +101,26 @@ export const routes: Routes = [
           { path: '', pathMatch: 'full', redirectTo: 'dashboard' },
         ],
       },
+      {
+        path: 'parent',
+        canActivate: [roleGuard('parent')],
+        children: [
+          {
+            path: 'dashboard',
+            loadComponent: () => import('./pages/parent/dashboard').then((m) => m.ParentDashboard),
+          },
+          {
+            path: 'results',
+            loadComponent: () =>
+              import('./pages/parent/ward-results').then((m) => m.ParentWardResults),
+          },
+          {
+            path: 'fees',
+            loadComponent: () => import('./pages/parent/fees').then((m) => m.ParentFees),
+          },
+          { path: '', pathMatch: 'full', redirectTo: 'dashboard' },
+        ],
+      },
     ],
   },
   { path: '**', redirectTo: '' },

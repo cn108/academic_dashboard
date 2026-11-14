@@ -5,7 +5,7 @@ from django.urls import include, path, re_path
 from django.views.static import serve as serve_media
 from rest_framework.routers import DefaultRouter
 
-from . import views
+from . import parents, views
 
 router = DefaultRouter()
 router.register("sessions", views.AcademicSessionViewSet, basename="session")
@@ -28,6 +28,19 @@ urlpatterns = [
         "api/students/<int:pk>/report-card/",
         views.StudentReportCardView.as_view(),
         name="api-student-report-card",
+    ),
+    path("api/parent/wards/", parents.ParentWardsView.as_view(), name="parent-wards"),
+    path("api/parent/fees/", parents.ParentFeesView.as_view(), name="parent-fees"),
+    path("api/parent/payments/", parents.ParentPaymentsView.as_view(), name="parent-payments"),
+    path(
+        "api/payments/initialize/",
+        parents.InitializePaymentView.as_view(),
+        name="payment-initialize",
+    ),
+    path(
+        "api/webhooks/paystack/",
+        parents.PaystackWebhookView.as_view(),
+        name="paystack-webhook",
     ),
     path("api/token/", views.TokenLoginView.as_view(), name="token_obtain_pair"),
     path("api/token/refresh/", views.TokenRefreshAPIView.as_view(), name="token_refresh"),

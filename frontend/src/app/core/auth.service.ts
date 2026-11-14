@@ -96,7 +96,13 @@ export class AuthService {
   }
 
   homeFor(role: Role | null): string {
-    return role === 'teacher' ? '/teacher/dashboard' : '/student/dashboard';
+    if (role === 'teacher') {
+      return '/teacher/dashboard';
+    }
+    if (role === 'parent') {
+      return '/parent/dashboard';
+    }
+    return '/student/dashboard';
   }
 
   private storeTokens(tokens: Tokens): void {

@@ -13,11 +13,15 @@ from .models import (
     Announcement,
     Assignment,
     Attendance,
+    Fee,
     LessonNote,
+    ParentStudentLink,
+    Payment,
     Profile,
     Result,
     Schedule,
     SchoolClass,
+    StudentFee,
     Subject,
     Submission,
     Term,
@@ -139,6 +143,36 @@ class AttendanceAdmin(admin.ModelAdmin):
     list_display = ("school_class", "student", "date", "status")
     list_filter = ("status", "school_class")
     date_hierarchy = "date"
+
+
+@admin.register(ParentStudentLink)
+class ParentStudentLinkAdmin(admin.ModelAdmin):
+    list_display = ("parent", "student", "relationship", "created_at")
+    list_filter = ("relationship",)
+    search_fields = ("parent__username", "student__username", "student__first_name")
+
+
+@admin.register(Fee)
+class FeeAdmin(admin.ModelAdmin):
+    list_display = ("description", "class_level", "session", "term", "amount")
+    list_filter = ("session", "term", "class_level")
+    search_fields = ("description",)
+
+
+@admin.register(StudentFee)
+class StudentFeeAdmin(admin.ModelAdmin):
+    list_display = ("student", "fee", "amount_paid", "balance", "status")
+    list_filter = ("status", "fee__session", "fee__term", "fee__class_level")
+    search_fields = ("student__username", "student__first_name", "fee__description")
+    readonly_fields = ("balance", "status")
+
+
+@admin.register(Payment)
+class PaymentAdmin(admin.ModelAdmin):
+    list_display = ("reference", "parent", "student_fee", "amount", "gateway", "status", "paid_at")
+    list_filter = ("status", "gateway")
+    search_fields = ("reference", "parent__username")
+    readonly_fields = ("reference", "paid_at", "created_at")
 
 
 @admin.register(Schedule)

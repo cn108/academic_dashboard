@@ -1,4 +1,4 @@
-export type Role = 'student' | 'teacher';
+export type Role = 'student' | 'teacher' | 'parent';
 export type PublishStatus = 'draft' | 'published' | 'archived';
 
 export interface Me {
@@ -278,6 +278,85 @@ export function gradeTone(grade: string): string {
     return 'badge-warning';
   }
   return 'badge-danger';
+}
+
+export interface Ward {
+  id: number;
+  full_name: string;
+  admission_number: string | null;
+  class_name: string | null;
+  relationship: string;
+  subjects_count: number;
+  average: number | null;
+  attendance_days: number;
+  attendance_rate: number | null;
+}
+
+export interface ParentWardsResponse {
+  term: { id: number; name: string; session: number; session_name: string } | null;
+  wards: Ward[];
+}
+
+export interface ParentFee {
+  id: number;
+  student: number;
+  student_name: string;
+  class_name: string | null;
+  description: string;
+  amount: string;
+  amount_paid: string;
+  balance: string;
+  status: 'unpaid' | 'partial' | 'paid';
+  session_id: number;
+  term_id: number;
+  term_name: string;
+}
+
+export interface ParentFeesResponse {
+  session: { id: number; name: string };
+  term: { id: number; name: string };
+  fees: ParentFee[];
+  totals: { amount: string; amount_paid: string; balance: string };
+}
+
+export interface ParentPayment {
+  id: number;
+  student: number;
+  student_name: string;
+  description: string;
+  term_name: string;
+  amount: string;
+  reference: string;
+  gateway: string;
+  status: 'pending' | 'success' | 'failed';
+  paid_at: string | null;
+  created_at: string;
+}
+
+export interface PaymentInit {
+  authorization_url: string;
+  access_code?: string;
+  reference: string;
+  amount: string;
+}
+
+export function feeTone(status: string): string {
+  if (status === 'paid') {
+    return 'badge-success';
+  }
+  if (status === 'partial') {
+    return 'badge-warning';
+  }
+  return 'badge-danger';
+}
+
+/** Naira, with thousands separators and no decimals when they are .00. */
+export function naira(value: string | number): string {
+  const amount = Number(value);
+  if (Number.isNaN(amount)) {
+    return '—';
+  }
+  return `₦${amount.toLocaleString('en-NG', { maximumFractionDigits: 2 })}`;
 }
 
 export function statusTone(status: PublishStatus): string {

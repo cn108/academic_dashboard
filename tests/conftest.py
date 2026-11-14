@@ -2,7 +2,7 @@ import pytest
 from django.contrib.auth.models import User
 from rest_framework.test import APIClient
 
-from core.models import AcademicSession, Profile, SchoolClass, Subject, Term
+from core.models import AcademicSession, ParentStudentLink, Profile, SchoolClass, Subject, Term
 
 PASSWORD = "Sup3rSecret!42"
 DEFAULT_STUDENT_PASSWORD = "Student@1234"
@@ -105,6 +105,47 @@ def student_client(student):
 def other_teacher_client(other_teacher):
     client = APIClient()
     client.force_authenticate(other_teacher)
+    return client
+
+
+@pytest.fixture
+def parent(db, student, classmate):
+    user = make_user(
+        "parent",
+        Profile.PARENT,
+        first_name="Chioma",
+        last_name="Okafor",
+        email="chioma@example.com",
+    )
+    for ward in (student, classmate):
+        ParentStudentLink.objects.create(parent=user, student=ward, relationship=ParentStudentLink.MOTHER)
+    return user
+
+
+@pytest.fixture
+def other_parent(db, outsider):
+    user = make_user(
+        "parent-bello",
+        Profile.PARENT,
+        first_name="Musa",
+        last_name="Bello",
+        email="musa@example.com",
+    )
+    ParentStudentLink.objects.create(parent=user, student=outsider, relationship=ParentStudentLink.FATHER)
+    return user
+
+
+@pytest.fixture
+def parent_client(parent):
+    client = APIClient()
+    client.force_authenticate(parent)
+    return client
+
+
+@pytest.fixture
+def other_parent_client(other_parent):
+    client = APIClient()
+    client.force_authenticate(other_parent)
     return client
 
 

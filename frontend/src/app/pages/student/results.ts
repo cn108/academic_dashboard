@@ -3,6 +3,7 @@ import { FormsModule } from '@angular/forms';
 
 import { ApiService } from '../../core/api.service';
 import { AuthService } from '../../core/auth.service';
+import { printHtmlDocument } from '../../core/print';
 import { gradeTone, Result, Term } from '../../core/models';
 
 @Component({
@@ -183,37 +184,13 @@ export class StudentResults {
 
     this.printError.set('');
     this.api.text(`students/${user.id}/report-card`, { session: term.session, term: term.id }).subscribe({
-      next: (html) => this.printHtml(html),
+      next: (html) => {
+        if (!printHtmlDocument(html)) {
+          this.printError.set('Could not open the print view in this browser.');
+        }
+      },
       error: () => this.printError.set('Could not build the report card. Try again in a moment.'),
     });
   }
 
-  private printHtml(html: string): void {
-    const frame = document.createElement('iframe');
-    frame.title = 'Report card';
-    frame.style.position = 'fixed';
-    frame.style.right = '0';
-    frame.style.bottom = '0';
-    frame.style.width = '0';
-    frame.style.height = '0';
-    frame.style.border = '0';
-    document.body.appendChild(frame);
-
-    const doc = frame.contentDocument;
-    if (!doc) {
-      frame.remove();
-      this.printError.set('Could not open the print view in this browser.');
-      return;
-    }
-
-    doc.open();
-    doc.write(html);
-    doc.close();
-
-    setTimeout(() => {
-      frame.contentWindow?.focus();
-      frame.contentWindow?.print();
-      setTimeout(() => frame.remove(), 60000);
-    }, 500);
-  }
 }

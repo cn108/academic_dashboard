@@ -15,7 +15,7 @@ import { AuthService } from '../core/auth.service';
         </div>
 
         <nav class="nav">
-          <p class="nav-label">{{ role() === 'teacher' ? 'Teaching' : 'My class' }}</p>
+          <p class="nav-label">{{ navLabel() }}</p>
 
           @if (role() === 'teacher') {
             <a routerLink="/teacher/dashboard" routerLinkActive="active">Overview</a>
@@ -27,6 +27,10 @@ import { AuthService } from '../core/auth.service';
             <a routerLink="/teacher/submissions" routerLinkActive="active">Submissions</a>
             <a routerLink="/teacher/announcements" routerLinkActive="active">Announcements</a>
             <a routerLink="/teacher/attendance" routerLinkActive="active">Attendance</a>
+          } @else if (role() === 'parent') {
+            <a routerLink="/parent/dashboard" routerLinkActive="active">Overview</a>
+            <a routerLink="/parent/results" routerLinkActive="active">Ward results</a>
+            <a routerLink="/parent/fees" routerLinkActive="active">Fees &amp; payments</a>
           } @else {
             <a routerLink="/student/dashboard" routerLinkActive="active">Overview</a>
             <a routerLink="/student/results" routerLinkActive="active">My results</a>
@@ -39,7 +43,7 @@ import { AuthService } from '../core/auth.service';
 
         <div class="sidebar-footer">
           <p class="small muted">
-            {{ user()?.class_name || 'No class assigned' }}
+            {{ user()?.class_name || (role() === 'parent' ? 'Parent / guardian' : 'No class assigned') }}
             @if (user()?.admission_number) {
               · {{ user()?.admission_number }}
             }
@@ -62,6 +66,12 @@ export class Shell {
 
   readonly user = this.auth.user;
   readonly role = computed(() => this.auth.role());
+  readonly navLabel = computed(() => {
+    if (this.role() === 'teacher') {
+      return 'Teaching';
+    }
+    return this.role() === 'parent' ? 'My children' : 'My class';
+  });
 
   logout(): void {
     this.auth.logout();

@@ -35,6 +35,7 @@ from .models import (
     Assignment,
     Attendance,
     LessonNote,
+    ParentStudentLink,
     Profile,
     PublishStatus,
     Result,
@@ -905,7 +906,8 @@ class AttendanceViewSet(viewsets.ModelViewSet):
 class StudentReportCardView(APIView):
     """A print-ready HTML report card for one student and term.
 
-    Accessible to the student, their class teacher, and staff. The page carries
+    Accessible to the student, their linked parents/guardians, their class teacher
+    and staff. The page carries
     its own print CSS so the browser can "Save as PDF" without a server-side
     PDF toolchain.
     """
@@ -921,10 +923,12 @@ class StudentReportCardView(APIView):
             request.user.is_staff
             or request.user.pk == student.pk
             or school_class.class_teacher_id == request.user.pk
+            or ParentStudentLink.objects.filter(parent=request.user, student=student).exists()
         )
         if not allowed:
             raise PermissionDenied(
-                "Only the student, their class teacher or a principal can open this report card."
+                "Only the student, their guardian, their class teacher or a principal "
+                "can open this report card."
             )
 
         session, term = resolve_period(request)

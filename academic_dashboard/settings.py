@@ -28,6 +28,8 @@ env = environ.Env(
     SCHOOL_NAME=(str, "Model Secondary School"),
     FRONTEND_URL=(str, ""),
     SERVE_MEDIA=(bool, False),
+    PAYSTACK_SECRET_KEY=(str, ""),
+    PAYSTACK_PUBLIC_KEY=(str, ""),
 )
 environ.Env.read_env(BASE_DIR / ".env")
 
@@ -124,6 +126,11 @@ USE_TZ = True
 # Static and media files
 
 SCHOOL_NAME = env("SCHOOL_NAME")
+
+# Paystack (school fees). Without a secret key the payment endpoints answer 503
+# with a readable message instead of failing obscurely.
+PAYSTACK_SECRET_KEY = env("PAYSTACK_SECRET_KEY")
+PAYSTACK_PUBLIC_KEY = env("PAYSTACK_PUBLIC_KEY")
 
 STATIC_URL = "/static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"

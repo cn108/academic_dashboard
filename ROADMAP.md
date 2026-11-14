@@ -32,6 +32,18 @@ Frontend (Angular 22 SPA)
 - [x] Broadsheet page, announcements editing, lesson-note attachments, upload validation
 - [x] Role-aware shell, budgeted low-bandwidth build (~304 kB initial / ~85 kB transfer)
 
+Version 1.1 — parent portal and school fees
+
+- [x] `parent` role on `Profile`, `ParentStudentLink` for one parent → many wards
+- [x] `Fee` per class level/session/term, `StudentFee` with derived balance and paid/partial/unpaid status
+- [x] `Payment` records with Paystack reference, amount, status and paid time
+- [x] `POST /api/payments/initialize/` → Paystack checkout URL (part payments allowed, balance enforced)
+- [x] `POST /api/webhooks/paystack/` with HMAC SHA512 signature check, CSRF-exempt, idempotent replay
+- [x] Parent portal routes: dashboard with ward averages/attendance, ward report cards, fees and history
+- [x] Report cards opened to linked parents, not just students, teachers and staff
+- [x] Admin screens for links, fees, student fees and payments; demo parent in `seed_demo`
+- [x] 30 tests covering ward scoping, fee maths, initialisation and webhook signatures
+
 Version 1.0 wrap-up
 
 - [x] Installable PWA: `@angular/pwa`, app-shell/font/icon caching, offline fallback for deep links
@@ -107,6 +119,10 @@ The printable document parents expect at the end of term.
 - [ ] Frontend CI job (build already wired) plus a smoke test of login and one portal page
 - [ ] Move uploads to object storage (S3/R2) and turn `SERVE_MEDIA` off
 - [ ] Background refresh of cached data when the app comes back online
+- [ ] Payment receipts by email/SMS and a printable fee receipt
+- [ ] Fee reminders to parents before the term's deadline
+- [ ] Whole-school finance report (billed, collected, outstanding per term)
+- [ ] Parent-teacher message thread
 
 ## Ground rules
 

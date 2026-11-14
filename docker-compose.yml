@@ -38,6 +38,8 @@ services:
       SECURE_SSL_REDIRECT: ${SECURE_SSL_REDIRECT:-False}
       AXES_ENABLED: "True"
       LOG_LEVEL: INFO
+      PAYSTACK_SECRET_KEY: ${PAYSTACK_SECRET_KEY:-}
+      PAYSTACK_PUBLIC_KEY: ${PAYSTACK_PUBLIC_KEY:-}
     volumes:
       - media:/app/media
     expose:

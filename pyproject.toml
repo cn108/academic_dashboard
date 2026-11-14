@@ -18,6 +18,8 @@ env = [
     "AXES_ENABLED=False",
     "EMAIL_BACKEND=django.core.mail.backends.locmem.EmailBackend",
     "DATABASE_URL=sqlite:///db.sqlite3",
+    "PAYSTACK_SECRET_KEY=pytest-paystack-secret-key",
+    "PAYSTACK_PUBLIC_KEY=pytest-paystack-public-key",
 ]
 
 [tool.coverage.run]

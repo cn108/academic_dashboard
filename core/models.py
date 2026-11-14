@@ -7,6 +7,7 @@ their own class.
 """
 
 from datetime import time
+from decimal import Decimal
 
 from django.conf import settings
 from django.core.exceptions import ValidationError
@@ -67,7 +68,8 @@ class Profile(models.Model):
 
     STUDENT = "student"
     TEACHER = "teacher"
-    ROLE_CHOICES = [(STUDENT, "Student"), (TEACHER, "Teacher")]
+    PARENT = "parent"
+    ROLE_CHOICES = [(STUDENT, "Student"), (TEACHER, "Teacher"), (PARENT, "Parent / guardian")]
 
     MALE = "M"
     FEMALE = "F"
@@ -110,6 +112,10 @@ def is_teacher(user):
 
 def is_student(user):
     return role_of(user) == Profile.STUDENT
+
+
+def is_parent(user):
+    return role_of(user) == Profile.PARENT
 
 
 class AcademicSession(models.Model):
@@ -529,3 +535,133 @@ class Schedule(models.Model):
 
     def __str__(self):
         return f"{self.name} on {self.day} at {self.time}"
+
+
+class ParentStudentLink(models.Model):
+    """A guardian's link to one of their wards.
+
+    A parent account can be linked to several children (and a child can have a
+    father, mother and guardian), which is what makes the parent portal useful.
+    """
+
+    FATHER = "father"
+    MOTHER = "mother"
+    GUARDIAN = "guardian"
+    RELATIONSHIP_CHOICES = [
+        (FATHER, "Father"),
+        (MOTHER, "Mother"),
+        (GUARDIAN, "Guardian"),
+    ]
+
+    parent = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="wards",
+    )
+    student = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="guardians",
+    )
+    relationship = models.CharField(max_length=20, choices=RELATIONSHIP_CHOICES, default=GUARDIAN)
+    created_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        ordering = ["student__first_name", "student__username"]
+        constraints = [models.UniqueConstraint(fields=["parent", "student"], name="unique_parent_student")]
+
+    def __str__(self):
+        return f"{self.parent.get_username()} → {self.student.get_username()} ({self.relationship})"
+
+
+class Fee(models.Model):
+    """A school bill for one class level in one term, e.g. JSS 2 tuition."""
+
+    session = models.ForeignKey(AcademicSession, on_delete=models.PROTECT, related_name="fees")
+    term = models.ForeignKey(Term, on_delete=models.PROTECT, related_name="fees")
+    class_level = models.CharField(max_length=20, choices=SchoolClass.LEVEL_CHOICES)
+    amount = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(0)])
+    description = models.CharField(max_length=200, help_text="e.g. Tuition and levies")
+    created_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        ordering = ["session__name", "term__name", "class_level", "description"]
+
+    def __str__(self):
+        return f"{self.class_level} {self.term.name}: {self.description}"
+
+    def clean(self):
+        if self.term_id and self.session_id and self.term.session_id != self.session_id:
+            raise ValidationError({"term": "The term does not belong to the chosen session."})
+
+
+class StudentFee(models.Model):
+    """One student's share of a fee, with what they have paid so far."""
+
+    UNPAID = "unpaid"
+    PARTIAL = "partial"
+    PAID = "paid"
+    STATUS_CHOICES = [(UNPAID, "Unpaid"), (PARTIAL, "Part payment"), (PAID, "Paid")]
+
+    student = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="student_fees"
+    )
+    fee = models.ForeignKey(Fee, on_delete=models.CASCADE, related_name="student_fees")
+    amount_paid = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    balance = models.DecimalField(max_digits=10, decimal_places=2, default=0, editable=False)
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default=UNPAID)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["student__first_name", "fee__description"]
+        constraints = [models.UniqueConstraint(fields=["student", "fee"], name="unique_student_fee")]
+
+    def __str__(self):
+        return f"{self.student.get_username()} {self.fee.description}: {self.status}"
+
+    @property
+    def amount(self):
+        return self.fee.amount
+
+    def recompute(self):
+        """Derive the balance and status from the fee and what has been paid."""
+        outstanding = self.fee.amount - self.amount_paid
+        self.balance = max(outstanding, Decimal("0.00"))
+        if self.amount_paid <= 0:
+            self.status = self.UNPAID
+        elif self.balance <= 0:
+            self.status = self.PAID
+        else:
+            self.status = self.PARTIAL
+
+    def save(self, *args, **kwargs):
+        self.recompute()
+        super().save(*args, **kwargs)
+
+
+class Payment(models.Model):
+    """A Paystack transaction against one student fee."""
+
+    PAYSTACK = "paystack"
+    GATEWAY_CHOICES = [(PAYSTACK, "Paystack")]
+
+    PENDING = "pending"
+    SUCCESS = "success"
+    FAILED = "failed"
+    STATUS_CHOICES = [(PENDING, "Pending"), (SUCCESS, "Successful"), (FAILED, "Failed")]
+
+    parent = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="payments")
+    student_fee = models.ForeignKey(StudentFee, on_delete=models.CASCADE, related_name="payments")
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    reference = models.CharField(max_length=64, unique=True)
+    gateway = models.CharField(max_length=20, choices=GATEWAY_CHOICES, default=PAYSTACK)
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default=PENDING)
+    paid_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        indexes = [models.Index(fields=["status", "reference"], name="payment_status_ref_idx")]
+
+    def __str__(self):
+        return f"{self.reference} {self.amount} ({self.status})"

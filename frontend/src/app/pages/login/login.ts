@@ -17,8 +17,7 @@ import { AuthService } from '../../core/auth.service';
 
         <h1>Welcome back</h1>
         <p class="muted small" style="margin-bottom: 1.5rem">
-          Students sign in with their admission number. Teachers use the username issued by the school
-          office.
+          Students sign in with their admission number. Teachers and parents use the username issued by the school office.
         </p>
 
         @if (error()) {

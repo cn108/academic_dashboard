@@ -17,12 +17,16 @@ from core.models import (
     Announcement,
     Assignment,
     Attendance,
+    Fee,
     LessonNote,
+    ParentStudentLink,
+    Payment,
     Profile,
     PublishStatus,
     Result,
     Schedule,
     SchoolClass,
+    StudentFee,
     Subject,
     Submission,
     Term,
@@ -30,6 +34,8 @@ from core.models import (
 
 TEACHER_USERNAME = "teacher"
 TEACHER_PASSWORD = "teach-pass-1234"
+PARENT_USERNAME = "parent"
+PARENT_PASSWORD = "parent-pass-1234"
 STUDENTS = [
     ("Chidera Okafor", "JSS2A-001", "F"),
     ("Emeka Nwosu", "JSS2A-002", "M"),
@@ -157,6 +163,57 @@ class Command(BaseCommand):
                 )
                 result.publish()
                 result.save()
+
+        # A parent account with two wards in the class, plus this term's fees.
+        parent, _ = User.objects.get_or_create(
+            username=PARENT_USERNAME,
+            defaults={
+                "first_name": "Chioma",
+                "last_name": "Okafor",
+                "email": "chioma.okafor@example.com",
+            },
+        )
+        parent.set_password(PARENT_PASSWORD)
+        parent.save()
+        Profile.objects.update_or_create(user=parent, defaults={"role": Profile.PARENT})
+        for ward in (students[0], students[2]):
+            ParentStudentLink.objects.update_or_create(
+                parent=parent,
+                student=ward,
+                defaults={"relationship": ParentStudentLink.MOTHER},
+            )
+
+        fees = {}
+        for description, amount in (
+            ("Tuition and levies", Decimal("45000.00")),
+            ("Bus service", Decimal("12000.00")),
+        ):
+            fee, _ = Fee.objects.update_or_create(
+                session=session,
+                term=terms[Term.FIRST],
+                class_level=school_class.level,
+                description=description,
+                defaults={"amount": amount},
+            )
+            fees[description] = fee
+
+        for ward in (students[0], students[2]):
+            for fee in fees.values():
+                StudentFee.objects.get_or_create(student=ward, fee=fee)
+
+        tuition = StudentFee.objects.get(student=students[0], fee=fees["Tuition and levies"])
+        tuition.amount_paid = Decimal("20000.00")
+        tuition.save()
+        Payment.objects.update_or_create(
+            reference="DEMO-PAYSTACK-0001",
+            defaults={
+                "parent": parent,
+                "student_fee": tuition,
+                "amount": Decimal("20000.00"),
+                "status": Payment.SUCCESS,
+                "paid_at": timezone.now(),
+            },
+        )
 
         for week, topic in enumerate(
             ["Whole numbers and place value", "Factors and multiples", "Fractions"], start=1
@@ -286,6 +343,9 @@ class Command(BaseCommand):
         self.stdout.write(
             f"  student: {STUDENTS[0][1]} / {settings.DEFAULT_STUDENT_PASSWORD} "
             f"(all {len(students)} imported students share this default password)"
+        )
+        self.stdout.write(
+            f"  parent: {PARENT_USERNAME} / {PARENT_PASSWORD} (wards: {STUDENTS[0][1]}, {STUDENTS[2][1]})"
         )
         student_count = Profile.objects.filter(role=Profile.STUDENT).count()
         self.stdout.write(
