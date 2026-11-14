@@ -21,6 +21,7 @@ import { AuthService } from '../core/auth.service';
             <a routerLink="/teacher/dashboard" routerLinkActive="active">Overview</a>
             <a routerLink="/teacher/class" routerLinkActive="active">My class</a>
             <a routerLink="/teacher/results" routerLinkActive="active">Results</a>
+            <a routerLink="/teacher/broadsheet" routerLinkActive="active">Broadsheet</a>
             <a routerLink="/teacher/notes" routerLinkActive="active">Lesson notes</a>
             <a routerLink="/teacher/assignments" routerLinkActive="active">Assignments</a>
             <a routerLink="/teacher/submissions" routerLinkActive="active">Submissions</a>

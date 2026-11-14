@@ -134,6 +134,7 @@ class ResultSerializer(serializers.ModelSerializer):
             "total",
             "grade",
             "remarks",
+            "teacher_remark",
             "status",
             "published_at",
             "updated_at",

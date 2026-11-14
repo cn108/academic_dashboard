@@ -2,7 +2,7 @@ import { Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 
 import { ApiService } from '../../core/api.service';
-import { CurrentTerm, LessonNote, statusTone, Subject } from '../../core/models';
+import { CurrentTerm, LessonNote, statusTone, Subject, uploadProblem } from '../../core/models';
 
 @Component({
   selector: 'app-teacher-notes',
@@ -47,6 +47,19 @@ import { CurrentTerm, LessonNote, statusTone, Subject } from '../../core/models'
           <textarea id="content" rows="5" [(ngModel)]="draft.content"></textarea>
         </div>
         <div class="field">
+          <label for="attachment">Attachment (optional)</label>
+          <input
+            id="attachment"
+            type="file"
+            accept=".pdf,.doc,.docx,.png,.jpg,.jpeg"
+            (change)="onFile($event)"
+          />
+          <p class="small muted" style="margin-top: 0.35rem">PDF, Word or image · up to 5 MB.</p>
+          @if (file()) {
+            <p class="small" style="margin-top: 0.35rem">Attached: {{ file()!.name }}</p>
+          }
+        </div>
+        <div class="field">
           <label for="status">Visibility</label>
           <select id="status" [(ngModel)]="draft.status">
             <option value="draft">Save as draft</option>
@@ -72,6 +85,9 @@ import { CurrentTerm, LessonNote, statusTone, Subject } from '../../core/models'
                   <span class="badge" [class]="tone(note.status)">{{ note.status }}</span>
                 </div>
                 <p class="small muted">{{ note.content }}</p>
+                @if (note.attachment) {
+                  <a class="small" [href]="note.attachment" target="_blank" rel="noopener">Open attachment</a>
+                }
                 <div class="row-actions" style="margin-top: 0.6rem">
                   @if (note.status !== 'published') {
                     <button class="btn btn-sm" type="button" (click)="publish(note)">Publish</button>
@@ -99,6 +115,7 @@ export class TeacherNotes {
   readonly message = signal('');
   readonly error = signal('');
   readonly busy = signal(false);
+  readonly file = signal<File | null>(null);
 
   draft = {
     subject: null as number | null,
@@ -132,25 +149,60 @@ export class TeacherNotes {
       this.error.set('Choose a subject and give the note a topic.');
       return;
     }
-    const payload = {
-      ...this.draft,
-      term: this.current()?.term.id ?? null,
-    };
+    const term = this.current()?.term.id ?? null;
+    const file = this.file();
 
-    this.busy.set(true);
-    this.error.set('');
-    this.api.create<LessonNote>('lesson-notes', payload).subscribe({
+    const handle = {
       next: () => {
         this.busy.set(false);
         this.message.set('Lesson note saved.');
         this.draft = { ...this.draft, topic: '', content: '', week_number: this.draft.week_number + 1 };
+        this.file.set(null);
         this.load();
       },
-      error: (error) => {
+      error: (error: unknown) => {
         this.busy.set(false);
         this.error.set(this.describe(error));
       },
-    });
+    };
+
+    this.busy.set(true);
+    this.error.set('');
+
+    if (file) {
+      const form = new FormData();
+      form.append('subject', String(this.draft.subject));
+      form.append('week_number', String(this.draft.week_number));
+      form.append('topic', this.draft.topic);
+      form.append('content', this.draft.content);
+      form.append('status', this.draft.status);
+      if (term !== null) {
+        form.append('term', String(term));
+      }
+      form.append('attachment', file);
+      this.api.upload<LessonNote>('lesson-notes', form).subscribe(handle);
+      return;
+    }
+
+    this.api.create<LessonNote>('lesson-notes', { ...this.draft, term }).subscribe(handle);
+  }
+
+  onFile(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0] ?? null;
+    if (!file) {
+      this.file.set(null);
+      return;
+    }
+    const problem = uploadProblem(file);
+    if (problem) {
+      input.value = '';
+      this.file.set(null);
+      this.error.set(problem);
+      return;
+    }
+    this.error.set('');
+    this.file.set(file);
   }
 
   publish(note: LessonNote): void {

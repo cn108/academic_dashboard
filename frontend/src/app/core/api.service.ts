@@ -33,8 +33,24 @@ export class ApiService {
     return this.http.delete<void>(`/api/${path}/`);
   }
 
-  upload<T>(path: string, form: FormData): Observable<T> {
-    return this.http.post<T>(`/api/${path}/`, form);
+  upload<T>(path: string, form: FormData, params: Params = {}): Observable<T> {
+    return this.http.post<T>(`/api/${path}/`, form, { params: this.toParams(params) });
+  }
+
+  /** Download a file (CSV template) as a blob. */
+  download(path: string, params: Params = {}): Observable<Blob> {
+    return this.http.get(`/api/${path}/`, {
+      params: this.toParams(params),
+      responseType: 'blob',
+    });
+  }
+
+  /** Fetch an HTML page such as a printable report card. */
+  text(path: string, params: Params = {}): Observable<string> {
+    return this.http.get(`/api/${path}/`, {
+      params: this.toParams(params),
+      responseType: 'text',
+    });
   }
 
   /** POST to a custom action such as publish/ or archive/. */

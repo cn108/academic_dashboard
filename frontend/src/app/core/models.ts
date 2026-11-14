@@ -186,6 +186,72 @@ export interface AttendanceSummary {
   absent: number;
 }
 
+export interface BroadsheetSubject {
+  id: number;
+  name: string;
+  teacher: number | null;
+  class_average: number | null;
+  results_count: number;
+}
+
+export interface BroadsheetScore {
+  subject: number;
+  subject_name: string;
+  ca1: number;
+  ca2: number;
+  ca3: number;
+  exam: number;
+  total: number;
+  grade: string;
+  remarks: string;
+  teacher_remark: string;
+}
+
+export interface BroadsheetStudent {
+  id: number;
+  full_name: string;
+  admission_number: string | null;
+  scores: BroadsheetScore[];
+  subjects_count: number;
+  total: number;
+  average: number | null;
+  position: number | null;
+}
+
+export interface Broadsheet {
+  class: { id: number; name: string; level: string };
+  session: { id: number; name: string };
+  term: { id: number; name: string; session_name: string };
+  subjects: BroadsheetSubject[];
+  students: BroadsheetStudent[];
+  student_count: number;
+}
+
+export interface ResultImportReport {
+  class: { id: number; name: string };
+  session: { id: number; name: string };
+  term: { id: number; name: string };
+  created: number;
+  updated: number;
+  errors: { row: number; reason: string }[];
+  total_rows: number;
+}
+
+export const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
+export const ALLOWED_UPLOAD_EXTENSIONS = ['pdf', 'doc', 'docx', 'png', 'jpg', 'jpeg'];
+
+/** A readable message when a chosen file is not allowed, otherwise null. */
+export function uploadProblem(file: File): string | null {
+  const extension = file.name.split('.').pop()?.toLowerCase() ?? '';
+  if (!ALLOWED_UPLOAD_EXTENSIONS.includes(extension)) {
+    return 'Upload a PDF, Word document or image (PDF, DOC, DOCX, PNG, JPG).';
+  }
+  if (file.size > MAX_UPLOAD_BYTES) {
+    return 'That file is larger than 5 MB. Compress it or upload a smaller copy.';
+  }
+  return null;
+}
+
 export interface StudentImportResult {
   created: string[];
   created_count: number;

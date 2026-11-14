@@ -22,6 +22,11 @@ urlpatterns = [
     path("api/health/", views.HealthView.as_view(), name="api-health"),
     path("api/me/", views.MeView.as_view(), name="api-me"),
     path("api/me/password/", views.PasswordChangeView.as_view(), name="api-password-change"),
+    path(
+        "api/students/<int:pk>/report-card/",
+        views.StudentReportCardView.as_view(),
+        name="api-student-report-card",
+    ),
     path("api/token/", views.TokenLoginView.as_view(), name="token_obtain_pair"),
     path("api/token/refresh/", views.TokenRefreshAPIView.as_view(), name="token_refresh"),
     path("api/", include(router.urls)),

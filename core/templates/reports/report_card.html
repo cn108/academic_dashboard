@@ -1,0 +1,495 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>
+      Report card — {{ student.full_name }} — {{ term.name }}, {{ session.name }}
+    </title>
+    <style>
+      :root {
+        --ink: #101828;
+        --muted: #475467;
+        --line: #98a2b3;
+        --brand: #0b3d2e;
+        --brand-soft: #e7f2ee;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        background: #f2f4f7;
+        color: var(--ink);
+        font-family: "Segoe UI", Tahoma, Arial, sans-serif;
+        font-size: 13px;
+        line-height: 1.45;
+      }
+
+      .sheet {
+        width: 210mm;
+        min-height: 297mm;
+        margin: 16px auto;
+        padding: 14mm 12mm;
+        background: #fff;
+        box-shadow: 0 10px 30px rgb(16 24 40 / 12%);
+      }
+
+      .masthead {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        padding-bottom: 10px;
+        border-bottom: 3px solid var(--brand);
+      }
+
+      .crest {
+        width: 58px;
+        height: 58px;
+        flex: 0 0 auto;
+        border: 2px solid var(--brand);
+        border-radius: 50%;
+        display: grid;
+        place-items: center;
+        font-weight: 800;
+        font-size: 20px;
+        color: var(--brand);
+        letter-spacing: 0.5px;
+      }
+
+      .masthead h1 {
+        margin: 0;
+        font-size: 21px;
+        text-transform: uppercase;
+        letter-spacing: 0.6px;
+        color: var(--brand);
+      }
+
+      .masthead p {
+        margin: 2px 0 0;
+        font-size: 11px;
+        color: var(--muted);
+        text-transform: uppercase;
+        letter-spacing: 1.2px;
+      }
+
+      .title-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        margin: 12px 0 8px;
+      }
+
+      .title-row h2 {
+        margin: 0;
+        font-size: 15px;
+        letter-spacing: 0.4px;
+        text-transform: uppercase;
+      }
+
+      .title-row span {
+        font-size: 12px;
+        color: var(--muted);
+      }
+
+      .facts {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 6px 14px;
+        padding: 10px 12px;
+        border: 1px solid var(--line);
+        background: var(--brand-soft);
+      }
+
+      .fact {
+        font-size: 12px;
+      }
+
+      .fact b {
+        display: block;
+        font-size: 10px;
+        text-transform: uppercase;
+        letter-spacing: 0.6px;
+        color: var(--muted);
+        font-weight: 600;
+      }
+
+      .summary {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 8px;
+        margin: 10px 0 14px;
+      }
+
+      .summary div {
+        border: 1px solid var(--line);
+        padding: 8px 10px;
+        text-align: center;
+      }
+
+      .summary b {
+        display: block;
+        font-size: 17px;
+        color: var(--brand);
+      }
+
+      .summary span {
+        font-size: 10px;
+        text-transform: uppercase;
+        letter-spacing: 0.6px;
+        color: var(--muted);
+      }
+
+      h3 {
+        margin: 16px 0 6px;
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        color: var(--brand);
+        border-bottom: 1px solid var(--brand);
+        padding-bottom: 3px;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 11.5px;
+      }
+
+      th,
+      td {
+        border: 1px solid var(--line);
+        padding: 5px 6px;
+        text-align: center;
+      }
+
+      th {
+        background: var(--brand);
+        color: #fff;
+        font-size: 10px;
+        text-transform: uppercase;
+        letter-spacing: 0.4px;
+      }
+
+      td.subject,
+      th.subject {
+        text-align: left;
+      }
+
+      tbody tr:nth-child(even) {
+        background: #f9fafb;
+      }
+
+      .totals td {
+        font-weight: 700;
+        background: var(--brand-soft);
+      }
+
+      .domains {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 14px;
+      }
+
+      .domains table {
+        font-size: 11px;
+      }
+
+      .domains th,
+      .domains td {
+        padding: 4px 5px;
+      }
+
+      .rating {
+        width: 14px;
+        height: 14px;
+        border: 1px solid var(--line);
+        border-radius: 50%;
+        display: inline-block;
+      }
+
+      .remarks {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 10px;
+        margin-top: 12px;
+      }
+
+      .remark {
+        border: 1px solid var(--line);
+        padding: 8px 10px;
+        min-height: 52px;
+      }
+
+      .remark b {
+        display: block;
+        font-size: 10px;
+        text-transform: uppercase;
+        letter-spacing: 0.6px;
+        color: var(--muted);
+        margin-bottom: 4px;
+      }
+
+      .remark .line {
+        border-bottom: 1px dotted var(--line);
+        height: 18px;
+      }
+
+      .footer-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 12px;
+        margin-top: 14px;
+        font-size: 11px;
+      }
+
+      .sign {
+        border-top: 1px solid var(--ink);
+        padding-top: 4px;
+        margin-top: 26px;
+        text-align: center;
+      }
+
+      .note {
+        margin-top: 12px;
+        font-size: 10px;
+        color: var(--muted);
+        text-align: center;
+        border-top: 1px solid var(--line);
+        padding-top: 6px;
+      }
+
+      .toolbar {
+        position: sticky;
+        top: 0;
+        display: flex;
+        justify-content: flex-end;
+        gap: 8px;
+        padding: 10px 16px;
+        background: #fff;
+        border-bottom: 1px solid #d0d5dd;
+      }
+
+      .toolbar button {
+        font: inherit;
+        font-weight: 600;
+        padding: 8px 16px;
+        border-radius: 8px;
+        border: 1px solid var(--brand);
+        background: var(--brand);
+        color: #fff;
+        cursor: pointer;
+      }
+
+      .toolbar span {
+        align-self: center;
+        margin-right: auto;
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      @page {
+        size: A4;
+        margin: 10mm;
+      }
+
+      @media print {
+        body {
+          background: #fff;
+        }
+
+        .sheet {
+          width: auto;
+          min-height: 0;
+          margin: 0;
+          padding: 0;
+          box-shadow: none;
+        }
+
+        .toolbar {
+          display: none !important;
+        }
+
+        tr,
+        .domains,
+        .remarks,
+        .summary {
+          break-inside: avoid;
+          page-break-inside: avoid;
+        }
+
+        thead {
+          display: table-header-group;
+        }
+
+        * {
+          -webkit-print-color-adjust: exact;
+          print-color-adjust: exact;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="toolbar">
+      <span>{{ student.full_name }} · {{ student.class_name }} · {{ term.name }}, {{ session.name }}</span>
+      <button type="button" onclick="window.print()">Print / Save as PDF</button>
+    </div>
+
+    <main class="sheet">
+      <header class="masthead">
+        <div class="crest">SMS</div>
+        <div>
+          <h1>{{ school_name }}</h1>
+          <p>Terminal report sheet · academic session {{ session.name }}</p>
+        </div>
+      </header>
+
+      <div class="title-row">
+        <h2>{{ term.name }} Report</h2>
+        <span>Issued {{ student.class_name }} · {{ session.name }}</span>
+      </div>
+
+      <section class="facts">
+        <div class="fact"><b>Student</b>{{ student.full_name }}</div>
+        <div class="fact"><b>Admission number</b>{{ student.admission_number|default:"—" }}</div>
+        <div class="fact"><b>Class</b>{{ student.class_name }}{% if student.level %} ({{ student.level }}){% endif %}</div>
+        <div class="fact"><b>Gender</b>{{ student.gender|default:"—" }}</div>
+        <div class="fact"><b>Session</b>{{ session.name }}</div>
+        <div class="fact"><b>Term</b>{{ term.name }}</div>
+        <div class="fact"><b>Class teacher</b>{{ student.class_teacher|default:"—" }}</div>
+        <div class="fact"><b>Subjects offered</b>{{ overall.subjects_count }}</div>
+      </section>
+
+      <section class="summary">
+        <div><span>Overall total</span><b>{{ overall.total }}</b></div>
+        <div><span>Average</span><b>{{ overall.average|default_if_none:"—" }}</b></div>
+        <div><span>Position in Class</span><b>{{ overall.position_label }}</b></div>
+        <div><span>Class size</span><b>{{ overall.class_size }}</b></div>
+      </section>
+
+      <h3>Cognitive Domain</h3>
+      <table>
+        <thead>
+          <tr>
+            <th class="subject">Subject</th>
+            <th>CA1<br />(10)</th>
+            <th>CA2<br />(10)</th>
+            <th>CA3<br />(20)</th>
+            <th>Exam<br />(60)</th>
+            <th>Total<br />(100)</th>
+            <th>Grade</th>
+            <th>Class<br />average</th>
+            <th class="subject">Remark</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in rows %}
+          <tr>
+            <td class="subject">{{ row.subject_name }}</td>
+            <td>{{ row.ca1 }}</td>
+            <td>{{ row.ca2 }}</td>
+            <td>{{ row.ca3 }}</td>
+            <td>{{ row.exam }}</td>
+            <td><strong>{{ row.total }}</strong></td>
+            <td>{{ row.grade }}</td>
+            <td>{{ row.class_average|default_if_none:"—" }}</td>
+            <td class="subject">{{ row.remark|default:"—" }}</td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="9">No published results for this term yet.</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+        <tfoot>
+          <tr class="totals">
+            <td class="subject">Total / average</td>
+            <td colspan="4"></td>
+            <td>{{ overall.total }}</td>
+            <td colspan="2">{{ overall.average|default_if_none:"—" }}</td>
+            <td class="subject">{{ overall.position_label }}</td>
+          </tr>
+        </tfoot>
+      </table>
+
+      <h3>Affective Domain and Psychomotor Domain</h3>
+      <div class="domains">
+        <table>
+          <thead>
+            <tr>
+              <th class="subject">Affective Domain</th>
+              {% for rating in rating_scale %}<th>{{ rating }}</th>{% endfor %}
+            </tr>
+          </thead>
+          <tbody>
+            {% for trait in affective_traits %}
+            <tr>
+              <td class="subject">{{ trait }}</td>
+              {% for rating in rating_scale %}<td><span class="rating"></span></td>{% endfor %}
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+
+        <table>
+          <thead>
+            <tr>
+              <th class="subject">Psychomotor Domain</th>
+              {% for rating in rating_scale %}<th>{{ rating }}</th>{% endfor %}
+            </tr>
+          </thead>
+          <tbody>
+            {% for trait in psychomotor_traits %}
+            <tr>
+              <td class="subject">{{ trait }}</td>
+              {% for rating in rating_scale %}<td><span class="rating"></span></td>{% endfor %}
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      <div class="remarks">
+        <div class="remark">
+          <b>Class Teacher's Remark</b>
+          {% for row in rows %}{% if row.remark %}{{ row.remark }}{% endif %}{% endfor %}
+          <div class="line"></div>
+        </div>
+        <div class="remark">
+          <b>Principal's Remark</b>
+          <div class="line"></div>
+          <div class="line"></div>
+        </div>
+      </div>
+
+      <div class="footer-grid">
+        <div>
+          <b>Next Term Fees</b>
+          <div class="line" style="border-bottom: 1px dotted var(--line); height: 18px"></div>
+        </div>
+        <div>
+          <b>Resumption Date</b>
+          <div class="line" style="border-bottom: 1px dotted var(--line); height: 18px"></div>
+        </div>
+        <div>
+          <b>Position</b>
+          <div>{{ overall.position_label }}</div>
+        </div>
+      </div>
+
+      <div class="footer-grid">
+        <div class="sign">Class Teacher's Signature</div>
+        <div class="sign">Principal's Signature</div>
+        <div class="sign">Parent / Guardian's Signature</div>
+      </div>
+
+      <p class="note">
+        Generated from the school portal for {{ term.name }}, {{ session.name }}. Grades use the
+        WAEC scale (A 70–100, B 60–69, C 50–59, D 45–49, E 40–44, F below 40). This report is
+        valid without a stamp.
+      </p>
+    </main>
+  </body>
+</html>

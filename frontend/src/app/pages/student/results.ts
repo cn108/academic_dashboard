@@ -2,6 +2,7 @@ import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 
 import { ApiService } from '../../core/api.service';
+import { AuthService } from '../../core/auth.service';
 import { gradeTone, Result, Term } from '../../core/models';
 
 @Component({
@@ -16,7 +17,14 @@ import { gradeTone, Result, Term } from '../../core/models';
           Only results your teacher has published are shown here.
         </p>
       </div>
+      <button class="btn btn-ghost" type="button" [disabled]="!selectedTerm()" (click)="printReportCard()">
+        Print / save PDF
+      </button>
     </div>
+
+    @if (printError()) {
+      <div class="alert alert-error">{{ printError() }}</div>
+    }
 
     <div class="card" style="margin-bottom: 1.25rem">
       <div class="grid grid-2">
@@ -103,7 +111,9 @@ import { gradeTone, Result, Term } from '../../core/models';
 })
 export class StudentResults {
   private readonly api = inject(ApiService);
+  private readonly auth = inject(AuthService);
 
+  readonly printError = signal('');
   readonly terms = signal<Term[]>([]);
   readonly termId = signal<number | null>(null);
   readonly results = signal<Result[]>([]);
@@ -157,5 +167,53 @@ export class StudentResults {
 
   tone(grade: string): string {
     return gradeTone(grade);
+  }
+
+  /**
+   * The report card is a server-rendered page that needs the auth header, so
+   * fetch it through the interceptor and print it from a hidden same-page frame.
+   * A popup window would be blocked by most browsers after an async fetch.
+   */
+  printReportCard(): void {
+    const user = this.auth.user();
+    const term = this.selectedTerm();
+    if (!user || !term) {
+      return;
+    }
+
+    this.printError.set('');
+    this.api.text(`students/${user.id}/report-card`, { session: term.session, term: term.id }).subscribe({
+      next: (html) => this.printHtml(html),
+      error: () => this.printError.set('Could not build the report card. Try again in a moment.'),
+    });
+  }
+
+  private printHtml(html: string): void {
+    const frame = document.createElement('iframe');
+    frame.title = 'Report card';
+    frame.style.position = 'fixed';
+    frame.style.right = '0';
+    frame.style.bottom = '0';
+    frame.style.width = '0';
+    frame.style.height = '0';
+    frame.style.border = '0';
+    document.body.appendChild(frame);
+
+    const doc = frame.contentDocument;
+    if (!doc) {
+      frame.remove();
+      this.printError.set('Could not open the print view in this browser.');
+      return;
+    }
+
+    doc.open();
+    doc.write(html);
+    doc.close();
+
+    setTimeout(() => {
+      frame.contentWindow?.focus();
+      frame.contentWindow?.print();
+      setTimeout(() => frame.remove(), 60000);
+    }, 500);
   }
 }

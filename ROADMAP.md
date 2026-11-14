@@ -33,48 +33,57 @@ Frontend (Angular 22 SPA)
 
 ## Next: Nigerian school essentials
 
-### A. End-of-term report cards (PDF)
+### A. End-of-term report cards
 
 The printable document parents expect at the end of term.
 
-- [ ] `GET /api/reports/report-card/?student=&session=&term=` (or `/api/results/report-card/`) returning
-      student name, admission number, class, session, term, per-subject CA1/CA2/CA3/CA total/exam/total/
-      grade/remark, and per-subject class average.
-- [ ] Overall total, overall average, and **position in class** ("3rd of 45") computed from the ranked
-      averages of every student with published results in that class, session and term. Ties share a
-      position; ranking only counts published rows.
-- [ ] Server-rendered PDF generated on the backend (no client-side PDF library) and downloadable by the
-      student for themselves; teachers/prinicpals can fetch any student in their class.
-- [ ] Frontend: "Report card" button on the student results page and a per-student action on the teacher
-      roster/broadsheet; downloads the PDF.
-- [ ] Tests: position ordering, tie handling, excluded drafts, class average maths, permission scoping.
+- [x] `GET /api/students/{id}/report-card/?session=&term=` returning student name, admission number,
+      class, session, term, per-subject CA1/CA2/CA3/CA total/exam/total/grade/remark (the new
+      `Result.teacher_remark`, falling back to the grade remark) and the per-subject class average.
+- [x] Overall total, overall average, and **position in class** ("3rd out of 45 students") computed
+      from the ranked averages of every student with published results. Ties share a position; drafts
+      are excluded.
+- [x] Server-rendered print-optimised HTML with `@media print` and an A4 `@page` rule, so the browser
+      saves it as a PDF without a server-side PDF toolchain (no Cairo/Pango/WeasyPrint). Sections for
+      the affective and psychomotor domains, class teacher's remark, principal's remark, next term
+      fees and resumption date.
+- [x] Frontend: "Print / save PDF" on the student results page prints the card from a hidden frame
+      (a popup window is blocked after an async fetch).
+- [x] Tests: position ordering, tie handling, excluded drafts, class average maths, permissions.
+- [ ] A per-student report card action on the teacher broadsheet roster.
+- [ ] Optional: fill the affective/psychomotor ratings and remark boxes from stored values.
 
 ### B. Broadsheet (teacher analytics view)
 
-- [ ] `GET /api/reports/broadsheet/?class=&session=&term=` returning students × subjects totals, each
-      student's average, position, and per-subject class average (plus subject order).
-- [ ] Frontend page `/teacher/broadsheet`: class/term selectors, sticky first column, colour-coded totals,
-      average and position columns, CSV export of the same grid.
-- [ ] Only published results feed the broadsheet in the same way report cards do.
-- [ ] Tests: grid shape, averages, positions, empty class/term behaviour.
+- [x] `GET /api/classes/{id}/broadsheet/?session=&term=` returning students × subjects totals, each
+      student's average and position, and per-subject class averages (plus subject order).
+- [x] Frontend page `/teacher/broadsheet`: class/term selectors, student rows with subject totals,
+      total/average/position columns and a class-average footer row.
+- [x] Only published results feed the broadsheet, in the same way report cards do.
+- [x] Tests: grid shape, averages, positions, drafts, permissions, empty class/term behaviour.
+- [ ] CSV export of the grid itself, and a sticky student column on narrow screens.
 
-### C. Bulk result upload (CSV/Excel)
+### C. Bulk result upload (CSV)
 
-- [ ] `GET /api/results/template/?class=&subject=&session=&term=` returning a CSV with the roster
-      (admission number, name) and CA1/CA2/CA3/Exam columns plus a header row documenting the caps.
-- [ ] `POST /api/results/import/` accepting that CSV for a class/subject/session/term: per-row validation
-      (known admission number, caps per column), create-or-update, and a report of created/updated/skipped
-      rows with reasons. Capacity and ownership checked like every other write.
-- [ ] Frontend: "Download template" and "Upload CSV" on the results page, showing the import report.
-- [ ] Tests: happy path, over-cap rows, unknown students, duplicate rows, other class rejected.
+- [x] `GET /api/classes/{id}/results/template/?session=&term=` returning the blank CSV
+      `Admission Number, Subject, CA1, CA2, CA3, Exam` as a download.
+- [x] `POST /api/classes/{id}/results/bulk-import/?session=&term=` with per-row validation (class
+      membership, subject ownership, CA/exam caps, whole numbers), create-or-update, new rows kept as
+      drafts, row-level error report, and class ownership checked like every other write.
+- [x] Frontend: "Download CSV template" and "Upload CSV" on the broadsheet page, with the import
+      report (created / updated / errors by row) displayed as an alert panel.
+- [x] Tests: happy path, over-cap rows, unknown students, duplicate rows, foreign subject, other class,
+      session mismatch, and updates that do not unpublish a result.
 
 ### D. UI/UX gaps to close
 
-- [ ] Teacher announcement editing (edit title, body, audience, then save) — publishing and archiving exist.
-- [ ] Lesson-note attachment upload in the teacher UI (backend already accepts `attachment`).
-- [ ] File validation end to end: allowed types (PDF, DOC/DOCX, images) and a size ceiling enforced in
-      the serializers as well as the browser, with a readable error message.
-- [ ] Confirm student submission upload and note attachment work in a browser, not just the API.
+- [x] Teacher announcement editing (title, body, audience, status) — publishing and archiving still exist.
+- [x] Lesson-note attachment upload in the teacher UI (multipart with the rest of the note fields).
+- [x] Frontend file validation: PDF/DOC/DOCX/PNG/JPG only, 5 MB ceiling, with readable messages on
+      assignment submissions, lesson-note attachments and CSV uploads.
+- [ ] Backend file validation: the same type and size rules enforced in the serializers.
+- [ ] Confirm student submission upload and note attachment work in a real browser session (file
+      pickers cannot be driven from the automated preview).
 
 ## Backlog (later)
 

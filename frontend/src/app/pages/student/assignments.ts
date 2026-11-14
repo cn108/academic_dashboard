@@ -3,7 +3,7 @@ import { DatePipe, DecimalPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 
 import { ApiService } from '../../core/api.service';
-import { Assignment, KIND_LABELS, Submission } from '../../core/models';
+import { Assignment, KIND_LABELS, Submission, uploadProblem } from '../../core/models';
 
 @Component({
   selector: 'app-student-assignments',
@@ -32,7 +32,13 @@ import { Assignment, KIND_LABELS, Submission } from '../../core/models';
         </div>
         <div class="field">
           <label for="file">Your file</label>
-          <input id="file" type="file" (change)="onFile($event)" />
+          <input
+            id="file"
+            type="file"
+            accept=".pdf,.doc,.docx,.png,.jpg,.jpeg"
+            (change)="onFile($event)"
+          />
+          <p class="small muted" style="margin-top: 0.35rem">PDF, Word or image · up to 5 MB.</p>
         </div>
         <div class="field">
           <label for="note">Note for your teacher (optional)</label>
@@ -135,12 +141,31 @@ export class StudentAssignments {
   }
 
   onFile(event: Event): void {
-    this.file = (event.target as HTMLInputElement).files?.[0] ?? null;
+    const file = (event.target as HTMLInputElement).files?.[0] ?? null;
+    if (!file) {
+      this.file = null;
+      return;
+    }
+    const problem = uploadProblem(file);
+    if (problem) {
+      this.file = null;
+      (event.target as HTMLInputElement).value = '';
+      this.error.set(problem);
+      return;
+    }
+    this.error.set('');
+    this.file = file;
   }
 
   submit(): void {
     const assignmentId = this.uploadingId();
     if (!assignmentId || !this.file) {
+      return;
+    }
+
+    const problem = uploadProblem(this.file);
+    if (problem) {
+      this.error.set(problem);
       return;
     }
 

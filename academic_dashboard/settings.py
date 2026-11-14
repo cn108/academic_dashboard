@@ -25,6 +25,7 @@ env = environ.Env(
     DEFAULT_FROM_EMAIL=(str, "no-reply@academic-dashboard.local"),
     LOG_LEVEL=(str, "INFO"),
     DEFAULT_STUDENT_PASSWORD=(str, "Student@1234"),
+    SCHOOL_NAME=(str, "Model Secondary School"),
 )
 environ.Env.read_env(BASE_DIR / ".env")
 
@@ -116,6 +117,8 @@ USE_I18N = True
 USE_TZ = True
 
 # Static and media files
+
+SCHOOL_NAME = env("SCHOOL_NAME")
 
 STATIC_URL = "/static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"

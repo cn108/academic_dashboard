@@ -8,7 +8,31 @@ from __future__ import annotations
 
 from statistics import mean
 
+from django.conf import settings
+
 from .models import PublishStatus, Result, SchoolClass, Term
+
+AFFECTIVE_TRAITS = [
+    "Punctuality",
+    "Neatness",
+    "Politeness",
+    "Honesty",
+    "Cooperation with others",
+    "Attentiveness",
+    "Perseverance",
+    "Attitude to work",
+]
+
+PSYCHOMOTOR_TRAITS = [
+    "Handwriting",
+    "Drawing and painting",
+    "Sports and games",
+    "Handling of tools",
+    "Musical skills",
+    "Public speaking",
+]
+
+RATING_SCALE = ["5", "4", "3", "2", "1"]
 
 
 def average(values):
@@ -38,6 +62,15 @@ def position_map(rows):
             previous_value = value
             previous_position = index
     return positions
+
+
+def ordinal(number: int) -> str:
+    """1 -> 1st, 12 -> 12th, 23 -> 23rd."""
+    if 10 <= number % 100 <= 20:
+        suffix = "th"
+    else:
+        suffix = {1: "st", 2: "nd", 3: "rd"}.get(number % 10, "th")
+    return f"{number}{suffix}"
 
 
 def build_broadsheet(school_class: SchoolClass, session, term: Term) -> dict:
@@ -80,6 +113,8 @@ def build_broadsheet(school_class: SchoolClass, session, term: Term) -> dict:
                     "exam": result.exam,
                     "total": result.total,
                     "grade": result.grade,
+                    "remarks": result.remarks,
+                    "teacher_remark": result.teacher_remark,
                 }
             )
         scores_for[student.pk] = scores
@@ -121,4 +156,65 @@ def build_broadsheet(school_class: SchoolClass, session, term: Term) -> dict:
             for profile in profiles
         ],
         "student_count": len(profiles),
+    }
+
+
+def build_report_card(student, session, term: Term) -> dict | None:
+    """The data a printable report card needs for one student.
+
+    Returns ``None`` when the student has no class, so the view can answer 400.
+    """
+    profile = getattr(student, "profile", None)
+    if profile is None or profile.school_class is None:
+        return None
+    school_class = profile.school_class
+
+    sheet = build_broadsheet(school_class, session, term)
+    row = next((entry for entry in sheet["students"] if entry["id"] == student.pk), None)
+    if row is None:
+        return None
+
+    averages = {subject["id"]: subject["class_average"] for subject in sheet["subjects"]}
+    rows = []
+    for score in row["scores"]:
+        rows.append(
+            {
+                **score,
+                "class_average": averages.get(score["subject"]),
+                "remark": score["teacher_remark"] or score["remarks"],
+            }
+        )
+
+    position = row["position"]
+    position_label = (
+        f"{ordinal(position)} out of {sheet['student_count']} students" if position else "Not ranked yet"
+    )
+
+    return {
+        "school_name": settings.SCHOOL_NAME,
+        "student": {
+            "id": student.pk,
+            "full_name": student.get_full_name() or student.get_username(),
+            "admission_number": profile.admission_number,
+            "gender": profile.get_gender_display() if profile.gender else "",
+            "class_name": school_class.name,
+            "level": school_class.level,
+            "class_teacher": (
+                school_class.class_teacher.get_full_name() if school_class.class_teacher else ""
+            ),
+        },
+        "session": {"id": session.pk, "name": session.name},
+        "term": {"id": term.pk, "name": term.name},
+        "rows": rows,
+        "overall": {
+            "total": row["total"],
+            "average": row["average"],
+            "subjects_count": row["subjects_count"],
+            "position": position,
+            "position_label": position_label,
+            "class_size": sheet["student_count"],
+        },
+        "affective_traits": AFFECTIVE_TRAITS,
+        "psychomotor_traits": PSYCHOMOTOR_TRAITS,
+        "rating_scale": RATING_SCALE,
     }

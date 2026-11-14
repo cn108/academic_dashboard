@@ -14,7 +14,7 @@ from django.core.exceptions import PermissionDenied
 from django.db import transaction
 from django.db.models import Count, Q
 from django.http import HttpResponse
-from django.shortcuts import get_object_or_404
+from django.shortcuts import get_object_or_404, render
 from django.utils import timezone
 from django.utils.text import slugify
 from rest_framework import viewsets
@@ -47,7 +47,7 @@ from .models import (
     role_of,
 )
 from .permissions import IsStaffOrReadOnly, IsTeacher
-from .reports import build_broadsheet
+from .reports import build_broadsheet, build_report_card
 from .serializers import (
     AcademicSessionSerializer,
     AnnouncementSerializer,
@@ -900,6 +900,39 @@ class AttendanceViewSet(viewsets.ModelViewSet):
             )
             entry[row["status"]] = row["total"]
         return Response(list(summary.values()))
+
+
+class StudentReportCardView(APIView):
+    """A print-ready HTML report card for one student and term.
+
+    Accessible to the student, their class teacher, and staff. The page carries
+    its own print CSS so the browser can "Save as PDF" without a server-side
+    PDF toolchain.
+    """
+
+    def get(self, request, pk):
+        student = get_object_or_404(User.objects.select_related("profile"), pk=pk)
+        profile = profile_for(student)
+        school_class = profile.school_class
+        if school_class is None:
+            raise ValidationError({"student": "This student is not in a class."})
+
+        allowed = (
+            request.user.is_staff
+            or request.user.pk == student.pk
+            or school_class.class_teacher_id == request.user.pk
+        )
+        if not allowed:
+            raise PermissionDenied(
+                "Only the student, their class teacher or a principal can open this report card."
+            )
+
+        session, term = resolve_period(request)
+        context = build_report_card(student, session, term)
+        if context is None:
+            raise ValidationError({"student": "This student is not enrolled in that class."})
+        context["request"] = request
+        return render(request, "reports/report_card.html", context)
 
 
 class ScheduleViewSet(viewsets.ModelViewSet):

@@ -26,7 +26,12 @@ import { Announcement, SchoolClass, statusTone } from '../../core/models';
 
     <div class="split">
       <div class="card">
-        <div class="card-head"><h2 style="font-size: 1rem">New notice</h2></div>
+        <div class="card-head">
+          <h2 style="font-size: 1rem">{{ editingId() ? 'Edit notice' : 'New notice' }}</h2>
+          @if (editingId()) {
+            <button class="btn btn-ghost btn-sm" type="button" (click)="cancelEdit()">Cancel</button>
+          }
+        </div>
         <div class="field">
           <label for="title">Title</label>
           <input id="title" [(ngModel)]="draft.title" />
@@ -51,8 +56,8 @@ import { Announcement, SchoolClass, statusTone } from '../../core/models';
             <option value="published">Publish</option>
           </select>
         </div>
-        <button class="btn" type="button" [disabled]="busy()" (click)="create()">
-          {{ busy() ? 'Posting…' : 'Save announcement' }}
+        <button class="btn" type="button" [disabled]="busy()" (click)="save()">
+          {{ busy() ? 'Saving…' : editingId() ? 'Save changes' : 'Save announcement' }}
         </button>
       </div>
 
@@ -71,6 +76,7 @@ import { Announcement, SchoolClass, statusTone } from '../../core/models';
                 </div>
                 <p class="small">{{ item.body }}</p>
                 <div class="row-actions" style="margin-top: 0.6rem">
+                  <button class="btn btn-ghost btn-sm" type="button" (click)="startEdit(item)">Edit</button>
                   @if (item.status !== 'published') {
                     <button class="btn btn-sm" type="button" (click)="publish(item)">Publish</button>
                   }
@@ -96,6 +102,7 @@ export class TeacherAnnouncements {
   readonly message = signal('');
   readonly error = signal('');
   readonly busy = signal(false);
+  readonly editingId = signal<number | null>(null);
 
   draft = {
     title: '',
@@ -117,17 +124,42 @@ export class TeacherAnnouncements {
     return statusTone(status as never);
   }
 
-  create(): void {
+  startEdit(item: Announcement): void {
+    this.editingId.set(item.id);
+    this.draft = {
+      title: item.title,
+      body: item.body,
+      school_class: item.school_class,
+      status: item.status,
+    };
+    this.message.set('');
+    this.error.set('');
+  }
+
+  cancelEdit(): void {
+    this.editingId.set(null);
+    this.draft = { title: '', body: '', school_class: null, status: 'draft' };
+    this.error.set('');
+  }
+
+  save(): void {
     if (!this.draft.title.trim() || !this.draft.body.trim()) {
       this.error.set('A title and message are required.');
       return;
     }
+
+    const editingId = this.editingId();
+    const request = editingId
+      ? this.api.update<Announcement>(`announcements/${editingId}`, this.draft)
+      : this.api.create<Announcement>('announcements', this.draft);
+
     this.busy.set(true);
     this.error.set('');
-    this.api.create<Announcement>('announcements', this.draft).subscribe({
+    request.subscribe({
       next: () => {
         this.busy.set(false);
-        this.message.set('Announcement saved.');
+        this.message.set(editingId ? 'Announcement updated.' : 'Announcement saved.');
+        this.editingId.set(null);
         this.draft = { ...this.draft, title: '', body: '' };
         this.load();
       },

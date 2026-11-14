@@ -261,6 +261,7 @@ class Result(Publishable):
     total = models.PositiveSmallIntegerField(default=0, editable=False)
     grade = models.CharField(max_length=1, blank=True, editable=False)
     remarks = models.CharField(max_length=20, blank=True, editable=False)
+    teacher_remark = models.TextField(blank=True)
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         null=True,

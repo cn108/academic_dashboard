@@ -4,8 +4,9 @@ A class-centric school management backend for Nigerian primary and secondary sch
 manages one class of 10–50 students: they set work, enter results, write weekly lesson notes, post
 announcements and take the daily register — and they decide exactly what students are allowed to see.
 
-Django is a **strict headless JSON API**. The only server-rendered surface left is the Django admin,
-where a superuser creates teacher accounts and sets up sessions, terms and classes.
+Django is a **headless JSON API**. The only server-rendered surfaces are the Django admin, where a
+superuser creates teacher accounts and sets up sessions, terms and classes, and the print-optimised
+HTML report card that the browser saves as a PDF.
 
 ![Django](https://img.shields.io/badge/Django-5.0-092E20)
 ![DRF](https://img.shields.io/badge/DRF-3.17-A30000)
@@ -110,7 +111,7 @@ budgeted for low-bandwidth devices, and both portals are lazy-loaded route group
 | `/login` | everyone | Admission number (students) or username (teachers) |
 | `/change-password` | forced on first login | Replaces the password the school issued |
 | `/student/dashboard`, `/results`, `/notes`, `/assignments`, `/attendance`, `/announcements` | students | Published work, marks and their own register |
-| `/teacher/dashboard`, `/class`, `/results`, `/notes`, `/assignments`, `/submissions`, `/announcements`, `/attendance` | teachers | Roster and CSV import, score entry with publish, notes, work, marking uploads, notices, register |
+| `/teacher/dashboard`, `/class`, `/results`, `/broadsheet`, `/notes`, `/assignments`, `/submissions`, `/announcements`, `/attendance` | teachers | Roster and CSV import, score entry with publish, broadsheet and CSV import, notes, work, marking uploads, notices, register |
 
 Seed credentials:
 
@@ -132,6 +133,7 @@ Seed credentials:
 | `GET /api/classes/{id}/broadsheet/?session=&term=` | Students × subjects totals, averages, class averages and positions (published only) |
 | `GET /api/classes/{id}/results/template/` | Blank CSV: `Admission Number, Subject, CA1, CA2, CA3, Exam` |
 | `POST /api/classes/{id}/results/bulk-import/` | Upsert results from that CSV; new rows stay drafts, row-level errors reported |
+| `GET /api/students/{id}/report-card/?session=&term=` | Print-ready HTML report card with positions, class averages and remark sections |
 | `GET/POST /api/subjects/` | Subjects of the caller's class |
 | `GET/POST /api/results/` | `?session=&term=&subject=&student=`; students see published only |
 | `GET/POST /api/lesson-notes/` | Weekly notes with `?subject=&term=` |

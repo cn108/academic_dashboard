@@ -99,6 +99,8 @@ def test_broadsheet_matrix_averages_and_positions(
         "exam": 30,
         "total": 58,
         "grade": "C",
+        "remarks": "Good",
+        "teacher_remark": "",
     }
 
 
