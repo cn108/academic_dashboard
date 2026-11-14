@@ -23,6 +23,13 @@ from core.models import (
 LOGS_URL = "/api/notifications/logs/"
 
 
+@pytest.fixture(autouse=True)
+def use_mock_provider(monkeypatch, settings):
+    """Legacy signal/service tests exercise message routing, not live Termii."""
+    settings.TERMII_API_KEY = ""
+    monkeypatch.setattr(notifications, "get_provider", lambda: notifications.MockProvider())
+
+
 @pytest.fixture
 def phone_parent(parent):
     profile = parent.profile

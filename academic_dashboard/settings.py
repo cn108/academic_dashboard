@@ -31,7 +31,9 @@ env = environ.Env(
     PAYSTACK_SECRET_KEY=(str, ""),
     PAYSTACK_PUBLIC_KEY=(str, ""),
     TERMII_API_KEY=(str, ""),
-    TERMII_SENDER_ID=(str, "SchoolPortal"),
+    TERMII_SENDER_ID=(str, "SchoolApp"),
+    TERMII_WHATSAPP_DEVICE_ID=(str, ""),
+    TERMII_WHATSAPP_TEMPLATE_ID=(str, ""),
     WHATSAPP_ENABLED=(bool, False),
 )
 environ.Env.read_env(BASE_DIR / ".env")
@@ -139,6 +141,8 @@ PAYSTACK_PUBLIC_KEY = env("PAYSTACK_PUBLIC_KEY")
 # Termii key is provisioned.
 TERMII_API_KEY = env("TERMII_API_KEY")
 TERMII_SENDER_ID = env("TERMII_SENDER_ID")
+TERMII_WHATSAPP_DEVICE_ID = env("TERMII_WHATSAPP_DEVICE_ID")
+TERMII_WHATSAPP_TEMPLATE_ID = env("TERMII_WHATSAPP_TEMPLATE_ID")
 WHATSAPP_ENABLED = env("WHATSAPP_ENABLED")
 
 STATIC_URL = "/static/"

@@ -32,6 +32,16 @@ Frontend (Angular 22 SPA)
 - [x] Broadsheet page, announcements editing, lesson-note attachments, upload validation
 - [x] Role-aware shell, budgeted low-bandwidth build (~304 kB initial / ~85 kB transfer)
 
+Version 1.3 — real Termii delivery and password recovery
+
+- [x] Termii transactional SMS adapter (`api.ng.termii.com/api/sms/send`, `channel=dnd`, 10s timeout)
+- [x] Nigerian phone normalization and pre-send validation, error details retained in notification log
+- [x] WhatsApp remains off by default; device and approved template ID are required before send
+- [x] Teacher-class / staff student password reset and staff-only ward reset route
+- [x] One-time temporary password display and copy control in teacher class roster
+- [x] Termii payload, phone format, timeout, failure and reset permission tests
+- [ ] Sender ID approval, account DND enablement and real-device SMS delivery check
+
 Version 1.2 — automated parent notifications
 
 - [x] `NotificationLog` (recipient, channel, event, payload, status, external id) and `Profile.phone_number`

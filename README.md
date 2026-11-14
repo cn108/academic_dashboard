@@ -246,13 +246,55 @@ parents through one provider-agnostic service:
   email as a last resort. A parent with no phone or email is skipped without breaking the save.
 - **No duplicate spam**: one absence alert per child per day, one receipt per payment, and one result
   announcement per parent per class and term.
-- **Provider**: `MockProvider` currently logs the message to the console and stores `status='sent'` with
-  a `mock-…` external id. Swap `get_provider()` for a Termii or Twilio client when
-  `TERMII_API_KEY` is provisioned; nothing else changes.
+- **Provider**: `TermiiProvider` sends SMS through `https://api.ng.termii.com/api/sms/send` with the
+  transactional `channel='dnd'`, normalizes Nigerian phone numbers to `234XXXXXXXXXX`, uses a 10-second
+  timeout and records Termii's `message_id`. Missing keys, invalid numbers, HTTP errors and timeouts are
+  saved on the log as `failed`; they never escape the signal. `MockProvider` remains available and is
+  injected in notification tests.
+- **Phone handling**: SMS is sent only to profiles with `phone_verified=True`; keep numbers in local
+  `0803…`, `+234803…` or `234803…` form. Invalid/non-Nigerian numbers get a failed log and are never
+  sent.
 - **History and rates**: every attempt is a `NotificationLog` row, visible in `/admin/` and through
   `GET /api/notifications/logs/` (staff only) with totals, delivery rate and counts by channel/event.
 - Parents' numbers live on `Profile.phone_number` (with `phone_verified`); the demo parent has
   `08031234567`, so `seed_demo` produces real log entries for its absence and payment.
+
+### Sending real notifications with Termii
+
+1. Create a Termii account and open the [Termii Sandbox](https://accounts.termii.com/#/sandbox).
+   Termii says the sandbox is enabled for accounts and provides free test credits; it can send a test
+   SMS to a real handset, so use a parent/staff number that has opted in. Copy your account API token
+   from **Settings → API token**; Termii documents no separate sandbox API-key format. Sandbox testing
+   can skip sender-ID approval. For production, confirm DND transactional routing is enabled on your
+   account; it is required to reach DND-registered numbers.
+2. For a sandbox test, use the sender configuration Termii provides in the sandbox. For production,
+   register a 3–11 character sender name in Termii's **Sender ID** settings. **Sender ID approval can
+   take time**, so submit it well before school onboarding or term resumption; until approved, delivery
+   from the desired name may be unavailable. For the DND route, contact Termii support to ensure it is
+   enabled for the account.
+3. Add the key and approved sender in `.env` (or the backend's secret store):
+   ```dotenv
+   TERMII_API_KEY=your_termii_api_key
+   TERMII_SENDER_ID=SchoolApp
+   WHATSAPP_ENABLED=False
+   ```
+4. Restart the local backend (`python manage.py runserver`) or rebuild the production backend
+   (`docker compose up --build -d backend`). Test first with an opted-in parent number whose Nigerian
+   number is stored in `Profile.phone_number` and has `phone_verified=True`.
+5. Trigger one SMS by marking that ward absent in **Teacher → Attendance**, or post a correctly signed
+   test payment webhook. Check the result in `GET /api/notifications/logs/` as a staff account; a
+   successful API acceptance has a Termii `message_id` in `external_id`. API acceptance means Termii
+   accepted the send, not that the phone delivered it; check the recipient handset and Termii delivery
+   report separately. `channel='dnd'` is used for these transactional alerts—not `generic`, which is
+   for promotional messages and will not reach numbers on DND. DND route activation is an account-level
+   prerequisite; contact Termii support to enable it before trying a live message.
+6. Enable WhatsApp only after the Termii/Meta account, WhatsApp device and approved template are
+   ready. Set `TERMII_WHATSAPP_DEVICE_ID` and `TERMII_WHATSAPP_TEMPLATE_ID` from the dashboard, then
+   set `WHATSAPP_ENABLED=True`. Leave it false until those out-of-band approvals are done.
+
+To exercise sends without reaching the network, the tests mock `urllib.request.urlopen` and assert the
+request body, DND route, normalized number, external id, failure logging and timeout. No live key is
+required.
 
 ## Production deployment
 
@@ -321,9 +363,10 @@ docker compose down -v                   # stop and delete database + media
 | `SCHOOL_NAME` | `Model Secondary School` | Masthead on report cards. |
 | `SECURE_SSL_REDIRECT` | `False` | Set `True` once HTTPS terminates in front of Nginx (also enables secure cookies and HSTS). |
 | `PAYSTACK_SECRET_KEY` | empty | Paystack key used to start transactions and verify webhooks. Empty disables payments with a readable message. |
-| `TERMII_API_KEY` | empty | SMS/WhatsApp gateway key; while empty the mock provider logs messages instead of sending. |
-| `TERMII_SENDER_ID` | `SchoolPortal` | Sender name shown on the parent's phone. |
-| `WHATSAPP_ENABLED` | `False` | Prefer WhatsApp over SMS when the parent has a number. |
+| `TERMII_API_KEY` | empty | Termii API token; while empty SMS/WhatsApp attempts are recorded as failed (email fallback remains mocked). |
+| `TERMII_SENDER_ID` | `SchoolApp` | Registered sender name for SMS; use the sandbox sender while testing. |
+| `WHATSAPP_ENABLED` | `False` | Prefer WhatsApp over SMS after template and device approval. |
+| `TERMII_WHATSAPP_DEVICE_ID` / `TERMII_WHATSAPP_TEMPLATE_ID` | empty | Required only to send approved WhatsApp templates. |
 | `PAYSTACK_PUBLIC_KEY` | empty | Paystack public key, kept for inline checkout usage. |
 | `SERVE_MEDIA` | `True` (compose) | Let Django deliver `/media/`; disable when moving uploads to object storage. |
 
