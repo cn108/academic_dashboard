@@ -12,7 +12,25 @@ env/
 db.sqlite3
 db.sqlite3-journal
 media/
+staticfiles/
 *.log
 
 # Local configuration / secrets
 .env
+
+# Test, lint and type-check caches
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+
+# Angular
+frontend/node_modules/
+frontend/dist/
+frontend/.angular/
+
+# OS noise
+.DS_Store

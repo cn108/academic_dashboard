@@ -1,0 +1,294 @@
+"""Seed a realistic Nigerian school for demos.
+
+Idempotent: class sizes and scores are stable across repeated runs.
+"""
+
+from datetime import timedelta
+from decimal import Decimal
+
+from django.conf import settings
+from django.contrib.auth.models import User
+from django.core.files.base import ContentFile
+from django.core.management.base import BaseCommand
+from django.utils import timezone
+
+from core.models import (
+    AcademicSession,
+    Announcement,
+    Assignment,
+    Attendance,
+    LessonNote,
+    Profile,
+    PublishStatus,
+    Result,
+    Schedule,
+    SchoolClass,
+    Subject,
+    Submission,
+    Term,
+)
+
+TEACHER_USERNAME = "teacher"
+TEACHER_PASSWORD = "teach-pass-1234"
+STUDENTS = [
+    ("Chidera Okafor", "JSS2A-001", "F"),
+    ("Emeka Nwosu", "JSS2A-002", "M"),
+    ("Fatima Bello", "JSS2A-003", "F"),
+    ("Ibrahim Musa", "JSS2A-004", "M"),
+    ("Ngozi Eze", "JSS2A-005", "F"),
+    ("Tunde Adeyemi", "JSS2A-006", "M"),
+    ("Blessing Ojo", "JSS2A-007", "F"),
+    ("Sani Abdullahi", "JSS2A-008", "M"),
+    ("Amaka Obi", "JSS2A-009", "F"),
+    ("Peter Danjuma", "JSS2A-010", "M"),
+    ("Halima Yusuf", "JSS2A-011", "F"),
+    ("Kelechi Umeh", "JSS2A-012", "M"),
+]
+SUBJECTS = ["Mathematics", "English Language", "Basic Science"]
+
+
+class Command(BaseCommand):
+    help = "Seed a demo school: class, teacher, students, results, notes and attendance."
+
+    def handle(self, *args, **options):
+        session, _ = AcademicSession.objects.get_or_create(name="2025/2026")
+        session.is_current = True
+        session.save()
+
+        terms = {}
+        for name in (Term.FIRST, Term.SECOND, Term.THIRD):
+            term, _ = Term.objects.get_or_create(session=session, name=name)
+            terms[name] = term
+        terms[Term.FIRST].is_current = True
+        terms[Term.FIRST].save()
+
+        teacher, _ = User.objects.get_or_create(
+            username=TEACHER_USERNAME,
+            defaults={"first_name": "Ada", "last_name": "Obi", "email": "ada@school.example"},
+        )
+        teacher.set_password(TEACHER_PASSWORD)
+        teacher.save()
+        Profile.objects.update_or_create(user=teacher, defaults={"role": Profile.TEACHER})
+
+        school_class, _ = SchoolClass.objects.get_or_create(
+            name="JSS 2A",
+            defaults={"level": "JSS 2", "class_teacher": teacher, "capacity": 50},
+        )
+        school_class.class_teacher = teacher
+        school_class.save()
+
+        subjects = {}
+        for name in SUBJECTS:
+            subject, _ = Subject.objects.update_or_create(
+                school_class=school_class, name=name, defaults={"teacher": teacher}
+            )
+            subjects[name] = subject
+
+        students = []
+        for index, (full_name, admission_number, gender) in enumerate(STUDENTS):
+            first_name, last_name = full_name.split(" ", 1)
+            user, created = User.objects.get_or_create(
+                username=admission_number,
+                defaults={"first_name": first_name, "last_name": last_name},
+            )
+            if created:
+                user.set_password(settings.DEFAULT_STUDENT_PASSWORD)
+                user.save()
+            Profile.objects.update_or_create(
+                user=user,
+                defaults={
+                    "role": Profile.STUDENT,
+                    "admission_number": admission_number,
+                    "gender": gender,
+                    "school_class": school_class,
+                    "must_change_password": False,
+                },
+            )
+            students.append(user)
+
+            # Deterministic, believable scores.
+            maths = 55 + (index * 3) % 40
+            english = 60 + (index * 5) % 35
+            science = 45 + (index * 7) % 45
+            for subject_name, total_goal, status in (
+                ("Mathematics", maths, PublishStatus.PUBLISHED),
+                ("English Language", english, PublishStatus.PUBLISHED),
+                ("Basic Science", science, PublishStatus.DRAFT),
+            ):
+                exam = min(60, max(0, total_goal - 28))
+                result, _ = Result.objects.update_or_create(
+                    student=user,
+                    subject=subjects[subject_name],
+                    session=session,
+                    term=terms[Term.FIRST],
+                    defaults={
+                        "ca1": 8,
+                        "ca2": 9,
+                        "ca3": 11,
+                        "exam": exam,
+                        "created_by": teacher,
+                        "status": status,
+                    },
+                )
+                if status == PublishStatus.PUBLISHED:
+                    result.publish()
+                    result.save()
+
+            # Previous term, so the student portal's term selector has history to show.
+            for subject_name, total_goal in (
+                ("Mathematics", 50 + (index * 5) % 45),
+                ("English Language", 58 + (index * 3) % 38),
+                ("Basic Science", 48 + (index * 6) % 42),
+            ):
+                exam = min(60, max(0, total_goal - 30))
+                result, _ = Result.objects.update_or_create(
+                    student=user,
+                    subject=subjects[subject_name],
+                    session=session,
+                    term=terms[Term.SECOND],
+                    defaults={
+                        "ca1": 7,
+                        "ca2": 8,
+                        "ca3": 10,
+                        "exam": exam,
+                        "created_by": teacher,
+                        "status": PublishStatus.PUBLISHED,
+                    },
+                )
+                result.publish()
+                result.save()
+
+        for week, topic in enumerate(
+            ["Whole numbers and place value", "Factors and multiples", "Fractions"], start=1
+        ):
+            note, _ = LessonNote.objects.update_or_create(
+                subject=subjects["Mathematics"],
+                term=terms[Term.FIRST],
+                week_number=week,
+                defaults={
+                    "topic": topic,
+                    "content": f"Class work and homework for week {week}.",
+                    "created_by": teacher,
+                    "status": PublishStatus.PUBLISHED,
+                },
+            )
+            note.publish()
+            note.save()
+
+        LessonNote.objects.update_or_create(
+            subject=subjects["English Language"],
+            term=terms[Term.FIRST],
+            week_number=4,
+            defaults={
+                "topic": "Comprehension: The market day",
+                "content": "Draft passage — not yet shared with students.",
+                "created_by": teacher,
+                "status": PublishStatus.DRAFT,
+            },
+        )
+
+        resumption, _ = Announcement.objects.update_or_create(
+            title="Resumption notice",
+            defaults={
+                "body": "All students resume on Monday. Morning assembly starts at 7:45am.",
+                "created_by": teacher,
+                "school_class": None,
+                "status": PublishStatus.PUBLISHED,
+            },
+        )
+        resumption.publish()
+        resumption.save()
+
+        Announcement.objects.update_or_create(
+            title="PTA meeting (draft)",
+            defaults={
+                "body": "Draft notice for the PTA meeting.",
+                "created_by": teacher,
+                "school_class": school_class,
+                "status": PublishStatus.DRAFT,
+            },
+        )
+
+        today = timezone.localdate()
+        homework, _ = Assignment.objects.update_or_create(
+            title="Mathematics homework: fractions",
+            school_class=school_class,
+            defaults={
+                "due_date": today + timedelta(days=3),
+                "kind": "assignment",
+                "subject": subjects["Mathematics"],
+                "term": terms[Term.FIRST],
+                "marks_total": Decimal("20.0"),
+                "created_by": teacher,
+                "status": PublishStatus.PUBLISHED,
+            },
+        )
+        homework.publish()
+        homework.save()
+
+        Assignment.objects.update_or_create(
+            title="English composition (draft)",
+            school_class=school_class,
+            defaults={
+                "due_date": today + timedelta(days=5),
+                "kind": "coursework",
+                "subject": subjects["English Language"],
+                "term": terms[Term.FIRST],
+                "marks_total": Decimal("30.0"),
+                "created_by": teacher,
+                "status": PublishStatus.DRAFT,
+            },
+        )
+
+        for index, student in enumerate(students[:2]):
+            if Submission.objects.filter(assignment=homework, student=student).exists():
+                continue
+            submission = Submission(
+                assignment=homework,
+                student=student,
+                note="Completed exercises 1-10.",
+                marks=Decimal("17.50") if index == 0 else None,
+                feedback="Neat work." if index == 0 else "",
+                graded_by=teacher if index == 0 else None,
+                graded_at=timezone.now() if index == 0 else None,
+            )
+            submission.file.save(
+                f"homework-{student.username}.pdf", ContentFile(b"%PDF-1.4 demo"), save=False
+            )
+            submission.save()
+
+        for offset in range(3):
+            day = today - timedelta(days=offset + 1)
+            for index, student in enumerate(students):
+                status = "absent" if (index + offset) % 7 == 0 else ("late" if index % 5 == 0 else "present")
+                Attendance.objects.update_or_create(
+                    school_class=school_class,
+                    student=student,
+                    date=day,
+                    defaults={"status": status, "marked_by": teacher},
+                )
+
+        Schedule.objects.update_or_create(
+            user=students[0],
+            name="Mathematics",
+            day="Monday",
+            defaults={"time": "08:00"},
+        )
+        Schedule.objects.update_or_create(
+            user=students[0],
+            name="English Language",
+            day="Tuesday",
+            defaults={"time": "10:00"},
+        )
+
+        self.stdout.write(self.style.SUCCESS("Demo school ready."))
+        self.stdout.write(f"  teacher: {TEACHER_USERNAME} / {TEACHER_PASSWORD}  (JSS 2A)")
+        self.stdout.write(
+            f"  student: {STUDENTS[0][1]} / {settings.DEFAULT_STUDENT_PASSWORD} "
+            f"(all {len(students)} imported students share this default password)"
+        )
+        student_count = Profile.objects.filter(role=Profile.STUDENT).count()
+        self.stdout.write(
+            f"  classes: {SchoolClass.objects.count()} | students: {student_count}"
+            f" | results: {Result.objects.count()}"
+        )
