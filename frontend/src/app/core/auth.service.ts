@@ -109,6 +109,25 @@ export class AuthService {
     localStorage.removeItem(REFRESH_KEY);
     localStorage.removeItem(USER_KEY);
     this.user.set(null);
+    this.clearApiCache();
+  }
+
+  /**
+   * The service worker caches `GET /api/` responses so a student can reread
+   * results and notes offline. Those responses belong to whoever was signed in,
+   * so a shared school device must not hand them to the next account.
+   */
+  private clearApiCache(): void {
+    if (typeof caches === 'undefined') {
+      return;
+    }
+    void caches.keys().then((names) => {
+      for (const name of names) {
+        if (name.includes(':data:')) {
+          void caches.delete(name);
+        }
+      }
+    });
   }
 
   private readStoredUser(): Me | null {

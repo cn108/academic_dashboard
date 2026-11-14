@@ -1,21 +1,52 @@
-# School Management API
+# Academic Dashboard — Nigerian School Management System
 
-A class-centric school management backend for Nigerian primary and secondary schools. One teacher
-manages one class of 10–50 students: they set work, enter results, write weekly lesson notes, post
-announcements and take the daily register — and they decide exactly what students are allowed to see.
+A class-centric school management platform for Nigerian primary and secondary schools, built as a
+Django REST API plus an installable Angular SPA. One teacher manages one class of 10–50 students:
+they set work, enter and publish results, write weekly lesson notes, post announcements and take the
+daily register — and they decide exactly what students are allowed to see.
 
-Django is a **headless JSON API**. The only server-rendered surfaces are the Django admin, where a
-superuser creates teacher accounts and sets up sessions, terms and classes, and the print-optimised
-HTML report card that the browser saves as a PDF.
+It was designed around how these schools actually work: end-of-term report cards with a position in
+class, a broadsheet for the whole class, results keyed in from a spreadsheet, and unreliable internet.
 
 ![Django](https://img.shields.io/badge/Django-5.0-092E20)
 ![DRF](https://img.shields.io/badge/DRF-3.17-A30000)
+![Angular](https://img.shields.io/badge/Angular-22-DD0031)
 ![Python](https://img.shields.io/badge/Python-3.12-3776AB)
-![Tests](https://img.shields.io/badge/tests-79%20passing-success)
+![Tests](https://img.shields.io/badge/tests-106%20passing-success)
+![PWA](https://img.shields.io/badge/PWA-offline--ready-5A0FC8)
 
-The Angular SPA in `frontend/` is the school portal: students see their published results, lesson
-notes, assignments and notices; teachers manage their class, enter and publish results, write notes
-and take the register.
+## Core features
+
+**Nigerian school specifics**
+
+- **Term and session management** — `2025/2026` sessions with First, Second and Third Term; one of
+  each is "current" and every result, note, assignment and report is scoped to a session and term.
+- **Results on the WAEC scale** — CA1 (10) + CA2 (10) + CA3 (20) + Exam (60), totals out of 100, and
+  A–F grades with remarks computed on save.
+- **Broadsheet analytics** — `GET /api/classes/{id}/broadsheet/` returns the whole class as a grid:
+  each student's total per subject, their average, their position (ties share a position: 1, 2, 2, 4),
+  and each subject's class average. Only published results count, so the sheet matches what parents see.
+- **CSV bulk import** — download the `Admission Number, Subject, CA1, CA2, CA3, Exam` template, fill it
+  in offline, upload it back. Rows are validated (known admission number, subject in the class, score
+  caps) and the response reports every created, updated and rejected row with a reason; new rows stay
+  drafts until a teacher publishes them.
+- **Print-ready report cards** — a single HTML page with A4 print CSS: student details, cognitive
+  table with per-subject class averages, overall total and average, **position in class**
+  ("12th out of 13 students"), affective and psychomotor domains, class teacher's and principal's
+  remarks, next term fees and resumption date. Students print their own; the browser's "Save as PDF"
+  does the rest, so no server-side PDF toolchain is needed.
+- **Offline-first** — the SPA is an installable PWA. The app shell, icons and fonts are cached, and
+  previously loaded results, notes and assignments remain readable when the connection drops.
+
+**Both portals**
+
+- Student portal: published results by term, report card printing, lesson notes with attachments,
+  assignments and uploads, the daily register and school notices.
+- Teacher portal: class roster with CSV student onboarding, score entry with publish/archive,
+  broadsheet with template download and CSV upload, lesson notes with attachments, assignment
+  marking, submissions grading, announcements (create, edit, publish) and the register.
+- Low-bandwidth budget: the production build ships under 320 kB initial JavaScript (≈304 kB,
+  ≈85 kB over the wire) with lazy-loaded route groups and gzip on at the web server.
 
 ## The publishing rule
 
@@ -29,7 +60,7 @@ status: **draft**, **published** or **archived**.
   `published_at` is stamped automatically.
 
 The filter is applied in the queryset, not the client, so a draft result cannot leak through a list
-endpoint, a detail endpoint or a search parameter.
+endpoint, a detail endpoint, a broadsheet, a report card or a search parameter.
 
 ## Domain model
 
@@ -52,7 +83,7 @@ erDiagram
 - **SchoolClass** — e.g. `JSS 2A`, with a class teacher and a capacity between 10 and 50.
 - **Subject** — belongs to a class and is taught by a teacher.
 - **Result** — `CA1` (10) + `CA2` (10) + `CA3` (20) + `Exam` (60) = `Total` (/100). Grade and remark are
-  derived on save using the WAEC-style scale below.
+  derived on save, and an optional `teacher_remark` provides the report-card comment.
 - **LessonNote** — week number, topic, content and an optional attachment, per subject and term.
 - **Announcement** — whole-school or one class.
 - **Assignment / Submission / Attendance** — class work, uploads and the daily register.
@@ -89,7 +120,7 @@ pip install -r requirements.txt -r requirements-dev.txt
 
 cp .env.example .env
 python manage.py migrate
-python manage.py seed_demo         # demo school: 1 class, 12 students, results, notes, register
+python manage.py seed_demo         # demo school: 1 class, 13 students, results, notes, register
 python manage.py runserver
 ```
 
@@ -103,8 +134,18 @@ npm install
 npm start                          # ng serve on http://localhost:4200, proxying /api to :8000
 ```
 
-The Django server must be running on `127.0.0.1:8000` (see `frontend/proxy.conf.json`). The build is
-budgeted for low-bandwidth devices, and both portals are lazy-loaded route groups.
+The Django server must be running on `127.0.0.1:8000` (see `frontend/proxy.conf.json`).
+
+To exercise the service worker you need the production build, because `ng serve` does not register it:
+
+```bash
+cd frontend
+npm run build                      # writes dist/frontend/browser
+npx http-server -p 4300 dist/frontend/browser   # or any static server
+```
+
+Open <http://localhost:4300>. The first load registers `ngsw-worker.js`; after a reload the app works
+offline (DevTools → Application → Service Workers, then tick "Offline").
 
 | Route | Who | What |
 | --- | --- | --- |
@@ -119,6 +160,95 @@ Seed credentials:
 | --- | --- | --- |
 | Teacher (JSS 2A) | `teacher` | `teach-pass-1234` |
 | Student | `JSS2A-001` | `Student@1234` |
+| Superuser (if created) | `principal` | `Board@Lag2026` |
+
+## PWA and offline behaviour
+
+- `@angular/pwa` registers `ngsw-worker.js` in production builds only (`app.config.ts`).
+- `ngsw-config.json` prefetches the app shell (`index.html`, JS, CSS, manifest) and lazily caches icons
+  and images; Google Fonts are cached for 30 days.
+- `GET /api/**` responses use a **cache-first with background update** data group ("school-api",
+  1 day, 200 entries), so a student who loaded their results or notes can reread them with no network.
+  Writes (score entry, publishing, uploads) still require a connection and fail honestly offline.
+- Because cached API responses are per-account, signing out deletes the service-worker data caches, so
+  a shared school device never shows the previous student's marks.
+- The icons in `frontend/public/icons/` are generated by `node scripts/generate-icons.mjs` (no image
+  library required) — replace that script if the school has its own crest.
+
+## Production deployment
+
+The production stack is three containers behind Nginx:
+
+```
+browser ──▶ nginx :8080 ──▶ /            Angular build (static)
+                         └─▶ /api/ /admin/ /static/ /media/ ──▶ backend :8000 (Gunicorn)
+                                                                    └─▶ db :5432 (PostgreSQL)
+```
+
+- `Dockerfile.prod` — Python 3.12 + Gunicorn, static files collected into the image, migrations applied
+  by `docker-entrypoint.sh` on start, non-root user, `/api/health/` healthcheck.
+- `frontend/Dockerfile.prod` — Node build stage, then Nginx serving the SPA and proxying Django.
+- `frontend/nginx.conf` — SPA deep-link fallback, gzip, hashed assets cached for a year, `index.html`
+  and `ngsw-worker.js` never cached, 10 MB upload ceiling, `/static/` and `/media/` proxied to Django.
+
+### Spin up the stack
+
+```bash
+cp .env.example .env        # optional: set SECRET_KEY, POSTGRES_PASSWORD, SCHOOL_NAME
+docker compose up --build -d
+docker compose ps           # db, backend and nginx should be healthy
+curl -I http://localhost:8080/            # 200, text/html from Nginx
+curl -s http://localhost:8080/api/health/ # {"status": "ok"}
+```
+
+Create the school administrator and, optionally, the demo data:
+
+```bash
+docker compose exec backend python manage.py createsuperuser
+docker compose exec backend python manage.py seed_demo
+```
+
+Then open:
+
+| URL | What |
+| --- | --- |
+| <http://localhost:8080/> | The SPA (installs as an app from the browser) |
+| <http://localhost:8080/admin/> | Django admin — teacher accounts, sessions, terms, classes |
+| <http://localhost:8080/api/docs/> | Swagger UI |
+| <http://localhost:8080/api/health/> | Readiness probe |
+
+Useful operations:
+
+```bash
+docker compose logs -f backend nginx     # follow logs
+docker compose exec backend python manage.py migrate      # manual migration
+docker compose exec db pg_dump -U dashboard dashboard > backup.sql
+docker compose down                      # stop (keeps volumes)
+docker compose down -v                   # stop and delete database + media
+```
+
+### Configuration
+
+`docker-compose.yml` reads these from `.env` (or the shell), with working local defaults:
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `SECRET_KEY` | local placeholder | **Change in production.** |
+| `DJANGO_ALLOWED_HOSTS` | `localhost,127.0.0.1,backend` | Host header allowlist (`ALLOWED_HOSTS` is still accepted). |
+| `FRONTEND_URL` | `http://localhost:8080` | Public origin of the SPA; appended to `CSRF_TRUSTED_ORIGINS`. |
+| `CSRF_TRUSTED_ORIGINS` | `http://localhost:8080` | Origins allowed to post forms (admin). |
+| `POSTGRES_DB` / `POSTGRES_USER` / `POSTGRES_PASSWORD` | `dashboard` | Database credentials; also composed into `DATABASE_URL`. |
+| `NGINX_PORT` | `8080` | Host port for the web container. |
+| `SCHOOL_NAME` | `Model Secondary School` | Masthead on report cards. |
+| `SECURE_SSL_REDIRECT` | `False` | Set `True` once HTTPS terminates in front of Nginx (also enables secure cookies and HSTS). |
+| `SERVE_MEDIA` | `True` (compose) | Let Django deliver `/media/`; disable when moving uploads to object storage. |
+
+Volumes: `postgres_data` (database) and `media` (uploads, mounted at `/app/media`). Back both up; the
+Angular build and Django static files live inside the images and are rebuilt on every deploy.
+
+For a public deployment, put Caddy, Traefik or a cloud load balancer in front of port 8080 for TLS,
+point the domain at it, then set `FRONTEND_URL=https://school.example`, `DJANGO_ALLOWED_HOSTS=...` and
+`SECURE_SSL_REDIRECT=True`.
 
 ## API
 
@@ -155,25 +285,19 @@ and content they own; anything else returns `404` (not visible) or `403` (visibl
 ## Tests and quality gates
 
 ```bash
-pytest                                   # 79 tests
+pytest                                   # 106 tests
 pytest --cov
 ruff check . && ruff format --check .
 mypy core academic_dashboard
 python manage.py check --deploy
+cd frontend && npm run build              # production build + service worker, 320 kB budget
 ```
 
 Coverage highlights: the grading scale and derived fields, the publish/draft visibility rule on all
 four content types, cross-class isolation, admin-only class creation, CSV import (duplicates, bad
-rows, capacity), admission-number login, the forced password change, attendance upserts and
-summaries, and submission upload/grading limits.
-
-## Docker
-
-```bash
-docker compose up --build
-```
-
-Daphne + PostgreSQL, migrations applied on start, API on <http://localhost:8000/>.
+rows, capacity), bulk result import, broadsheet and report-card maths (positions, ties, class
+averages), admission-number login, the forced password change, attendance upserts and summaries,
+and submission upload/grading limits.
 
 ## Project layout
 
@@ -182,26 +306,35 @@ academic_dashboard/   settings (env-driven), ASGI/WSGI entry points, root URLs
 core/
   models.py           sessions, classes, subjects, results, notes, assignments, attendance
   views.py            viewsets with the publishing and class-scoping rules
+  reports.py          broadsheet, ranking and report-card maths
+  templates/reports/  print-optimised report card
   serializers.py      API representations and validation
   permissions.py      teacher-only writes, staff-only setup
   admin.py            school-office control panel (teacher creation)
   management/commands/seed_demo.py
-  migrations/         0017 (schema pivot), 0018 (legacy rows → school structure)
-tests/                pytest suite (models, auth, content visibility, student onboarding)
-frontend/             Angular SPA — student and teacher portals
+  migrations/         0017 (schema pivot) … 0019 (teacher remark)
+tests/                pytest suite (models, auth, visibility, reports, imports)
+frontend/             Angular SPA — student and teacher portals, PWA config, icons script
+Dockerfile.prod       Gunicorn image + entrypoint migrations
+docker-compose.yml    PostgreSQL + backend + Nginx production stack
 ```
 
 ## Design decisions
 
 - **Visibility is a queryset concern.** Drafts are excluded at the database level for students, so no
-  endpoint can accidentally return one.
+  endpoint can accidentally return one — including the broadsheet and report card.
 - **Identity comes from the server.** Result and attendance rows take the student from the request or
   from the class roster; nothing trusts a client-supplied id for permission decisions.
 - **The class is the security boundary.** Teacher scoping is expressed once per viewset as
   "class teacher or subject teacher"; objects outside it simply do not exist for that user.
-- **Grading maths lives on the model.** `Result.compute()` and `Result.grade_for()` are unit-tested
-  without touching HTTP.
+- **Grading and ranking maths live outside the views.** `Result.compute()` grades a row;
+  `core/reports.py` builds the broadsheet, ranks students and renders the report card.
+- **No PDF toolchain.** Report cards are HTML with print CSS, which keeps the server image small and
+  works on the low-spec machines these schools actually have.
+- **Offline is read-only.** Cached GETs keep students productive without a connection; writes are
+  never queued silently, so nothing pretends to be saved.
 
 ## Not built yet
 
-Nothing outstanding from the current scope.
+See `ROADMAP.md` — class analytics dashboards, a whole-class result-sheet printout, teacher-initiated
+password resets and per-submission feedback threads.

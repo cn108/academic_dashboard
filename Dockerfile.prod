@@ -1,0 +1,44 @@
+# Production image: Gunicorn (WSGI) serving the JSON API, static files via
+# WhiteNoise, migrations applied by the entrypoint before the server starts.
+FROM python:3.12-slim
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
+    DEBUG=False \
+    PORT=8000
+
+WORKDIR /app
+
+RUN apt-get update \
+    && apt-get install --no-install-recommends -y curl libpq5 \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY requirements.txt ./
+RUN pip install --upgrade pip \
+    && pip install -r requirements.txt "gunicorn==23.0.0" "psycopg[binary]==3.2.3"
+
+COPY . .
+
+# Collected at build time; WhiteNoise serves /static/ (admin assets, DRF docs).
+RUN SECRET_KEY=build-only-key DEBUG=False SERVE_MEDIA=True \
+    python manage.py collectstatic --noinput
+
+RUN useradd --create-home --uid 1000 appuser \
+    && mkdir -p /app/media /app/staticfiles \
+    && chown -R appuser:appuser /app \
+    && chmod +x /app/docker-entrypoint.sh
+USER appuser
+
+EXPOSE 8000
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=25s --retries=3 \
+    CMD curl -fsS http://127.0.0.1:8000/api/health/ || exit 1
+
+ENTRYPOINT ["/app/docker-entrypoint.sh"]
+CMD ["gunicorn", "academic_dashboard.wsgi:application", \
+     "--bind", "0.0.0.0:8000", \
+     "--workers", "3", \
+     "--timeout", "60", \
+     "--access-logfile", "-", \
+     "--error-logfile", "-"]

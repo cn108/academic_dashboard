@@ -1,5 +1,4 @@
 import { Component, computed, inject, signal } from '@angular/core';
-import { DecimalPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 
 import { ApiService } from '../../core/api.service';
@@ -13,7 +12,7 @@ import {
 
 @Component({
   selector: 'app-teacher-broadsheet',
-  imports: [DecimalPipe, FormsModule],
+  imports: [FormsModule],
   template: `
     <div class="page-head">
       <div>

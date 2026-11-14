@@ -1,35 +1,63 @@
+name: academic-dashboard
+
+# Production-style stack: PostgreSQL, Gunicorn behind Nginx, and the compiled
+# Angular SPA served by Nginx. `docker compose up --build` then browse
+# http://localhost:8080.
 services:
   db:
     image: postgres:16-alpine
     environment:
-      POSTGRES_DB: dashboard
-      POSTGRES_USER: dashboard
-      POSTGRES_PASSWORD: dashboard
+      POSTGRES_DB: ${POSTGRES_DB:-dashboard}
+      POSTGRES_USER: ${POSTGRES_USER:-dashboard}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-dashboard}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U dashboard"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-dashboard} -d ${POSTGRES_DB:-dashboard}"]
       interval: 5s
       timeout: 5s
       retries: 10
+    restart: unless-stopped
 
-  web:
-    build: .
-    ports:
-      - "8000:8000"
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.prod
     environment:
       DEBUG: "False"
-      SECRET_KEY: local-docker-secret-key-change-me
-      ALLOWED_HOSTS: localhost,127.0.0.1,web
-      CSRF_TRUSTED_ORIGINS: http://localhost:8000
-      DATABASE_URL: postgres://dashboard:dashboard@db:5432/dashboard
-      DEFAULT_STUDENT_PASSWORD: Student@1234
-      SCHOOL_NAME: Model Secondary School
-      SECURE_SSL_REDIRECT: "False"
+      SECRET_KEY: ${SECRET_KEY:-local-production-secret-change-me}
+      DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-localhost,127.0.0.1,backend}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:8080}
+      CSRF_TRUSTED_ORIGINS: ${CSRF_TRUSTED_ORIGINS:-http://localhost:8080}
+      DATABASE_URL: postgres://${POSTGRES_USER:-dashboard}:${POSTGRES_PASSWORD:-dashboard}@db:5432/${POSTGRES_DB:-dashboard}
+      DEFAULT_STUDENT_PASSWORD: ${DEFAULT_STUDENT_PASSWORD:-Student@1234}
+      SCHOOL_NAME: ${SCHOOL_NAME:-Model Secondary School}
+      SERVE_MEDIA: "True"
+      # Set to True once the stack sits behind a TLS terminator such as Caddy
+      # or a cloud load balancer.
+      SECURE_SSL_REDIRECT: ${SECURE_SSL_REDIRECT:-False}
       AXES_ENABLED: "True"
+      LOG_LEVEL: INFO
+    volumes:
+      - media:/app/media
+    expose:
+      - "8000"
     depends_on:
       db:
         condition: service_healthy
+    restart: unless-stopped
+
+  nginx:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.prod
+    ports:
+      - "${NGINX_PORT:-8080}:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
 
 volumes:
   postgres_data:
+  media:

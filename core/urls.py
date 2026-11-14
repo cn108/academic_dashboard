@@ -1,6 +1,8 @@
 """URL configuration for the core app — a headless JSON API."""
 
-from django.urls import include, path
+from django.conf import settings
+from django.urls import include, path, re_path
+from django.views.static import serve as serve_media
 from rest_framework.routers import DefaultRouter
 
 from . import views
@@ -31,3 +33,10 @@ urlpatterns = [
     path("api/token/refresh/", views.TokenRefreshAPIView.as_view(), name="token_refresh"),
     path("api/", include(router.urls)),
 ]
+
+
+# Uploaded files. Nginx proxies /media/ to Gunicorn in the production stack.
+if settings.DEBUG or getattr(settings, "SERVE_MEDIA", False):
+    urlpatterns += [
+        re_path(r"^media/(?P<path>.*)$", serve_media, {"document_root": settings.MEDIA_ROOT}),
+    ]

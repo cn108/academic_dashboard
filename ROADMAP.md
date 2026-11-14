@@ -29,7 +29,18 @@ Frontend (Angular 22 SPA)
 - [x] Student portal: dashboard, results (term selector), notes, assignments (upload), attendance, notices
 - [x] Teacher portal: dashboard, roster + CSV import, results entry with term/subject and publishing,
       notes, assignments with per-row marking link, submissions grading, notices, attendance
-- [x] Role-aware shell, budgeted low-bandwidth build (~297 kB initial / ~83 kB transfer)
+- [x] Broadsheet page, announcements editing, lesson-note attachments, upload validation
+- [x] Role-aware shell, budgeted low-bandwidth build (~304 kB initial / ~85 kB transfer)
+
+Version 1.0 wrap-up
+
+- [x] Installable PWA: `@angular/pwa`, app-shell/font/icon caching, offline fallback for deep links
+- [x] Cache-first data group for `GET /api/**` (1 day, 200 entries) plus a data-cache purge on sign-out
+- [x] Generated, project-branded install icons (`frontend/scripts/generate-icons.mjs`)
+- [x] `Dockerfile.prod`: Gunicorn, collected static files, non-root user, healthcheck, migrations on start
+- [x] Nginx service serving the compiled SPA at `/` and proxying `/api/`, `/admin/`, `/static/`, `/media/`
+- [x] `docker compose` stack with PostgreSQL, media volume and production env defaults
+- [x] README production runbook and environment reference
 
 ## Next: Nigerian school essentials
 
@@ -93,13 +104,13 @@ The printable document parents expect at the end of term.
 - [ ] Submission delete/re-upload before marking
 - [ ] Attendance history per student for teachers, and term attendance on the report card
 - [ ] Result-sheet PDF for a whole class (broadsheet print)
-- [ ] PWA/offline caching for low-bandwidth users
 - [ ] Frontend CI job (build already wired) plus a smoke test of login and one portal page
-- [ ] Deployment runbook (Daphne + PostgreSQL + static/media storage)
+- [ ] Move uploads to object storage (S3/R2) and turn `SERVE_MEDIA` off
+- [ ] Background refresh of cached data when the app comes back online
 
 ## Ground rules
 
 - The publishing rule stays in the queryset, not the client: students never receive drafts.
 - Every new endpoint ships with tests; `pytest`, `ruff check`, `mypy` and `ng build` stay green.
-- Keep the initial bundle under the 320 kB warning budget (currently ~297 kB).
+- Keep the initial bundle under the 320 kB warning budget (currently ~304 kB).
 - New teacher pages follow the existing inline-template + `styles.scss` design system.
