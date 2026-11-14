@@ -23,6 +23,9 @@ import {
         </p>
       </div>
       <div class="row-actions">
+        <button class="btn btn-ghost" type="button" [disabled]="!sheet()" (click)="downloadXlsx()">
+          Export Excel
+        </button>
         <button class="btn btn-ghost" type="button" [disabled]="!sheet()" (click)="downloadTemplate()">
           Download CSV template
         </button>
@@ -229,6 +232,31 @@ export class TeacherBroadsheet {
 
   scoreFor(student: BroadsheetStudent, subjectId: number): number | null {
     return student.scores.find((score) => score.subject === subjectId)?.total ?? null;
+  }
+
+  downloadXlsx(): void {
+    const schoolClass = this.schoolClass();
+    const term = this.terms().find((row) => row.id === this.termId());
+    if (!schoolClass || !term) {
+      return;
+    }
+    this.api
+      .download(`classes/${schoolClass.id}/broadsheet`, {
+        session: term.session,
+        term: term.id,
+        format: 'xlsx',
+      })
+      .subscribe({
+        next: (blob) => {
+          const url = URL.createObjectURL(blob);
+          const anchor = document.createElement('a');
+          anchor.href = url;
+          anchor.download = `broadsheet-${schoolClass.name}-${term.name}.xlsx`;
+          anchor.click();
+          URL.revokeObjectURL(url);
+        },
+        error: () => this.error.set('Could not export the broadsheet.'),
+      });
   }
 
   downloadTemplate(): void {

@@ -91,6 +91,8 @@ erDiagram
     User ||--|| Profile : has
 ```
 
+- **School** — the school's identity (name, motto, address, phone, email, logo) and its current session
+  and term. One row today; the unique `slug` leaves room for multi-tenancy later.
 - **AcademicSession / Term** — e.g. `2025/2026`, `First Term`. One of each is current; the API exposes
   `GET /api/terms/current/`.
 - **SchoolClass** — e.g. `JSS 2A`, with a class teacher and a capacity between 10 and 50.
@@ -296,6 +298,37 @@ To exercise sends without reaching the network, the tests mock `urllib.request.u
 request body, DND route, normalized number, external id, failure logging and timeout. No live key is
 required.
 
+## School branding and the bursar's dashboard
+
+### Branding
+
+Edit **School** in Django admin. The fields are the school's name, motto, address, phone, email, logo
+and current session/term. Saving a current term also marks it current everywhere else, so report
+cards, fee pages and the term selector all agree.
+
+- The report-card masthead uses the logo (or the school's initials when no logo is uploaded), name,
+  address, motto and contact line instead of hardcoded text.
+- `GET /api/school/` is public so the login page and the portal sidebar can show the same identity
+  before and after sign-in.
+- `SCHOOL_NAME` is only the initial default used when the School row is first created; the database
+  row wins after that.
+- Uploads land in `MEDIA_ROOT` under `school/`; back up the media volume with the database.
+
+### Finance
+
+Staff accounts (`is_staff`) get a **Finance** link in the sidebar; regular teachers do not see the
+link and are redirected if they open the route. Every figure comes from the same fee rows parents
+see, and fees that apply to a student's class level are created on first visit.
+
+- Summary: total expected, collected, outstanding, fully paid and debtor counts for a session/term.
+- Debtors: outstanding students, largest debt first, with guardian name and phone for follow-up;
+  supports `?search=` across name, admission number, class and guardian, and paginates 20 per page.
+- Ledger: every student (including those with no fee configured) with expected, paid, balance and
+  status, as JSON or an `.xlsx` download.
+- Broadsheet: `?format=xlsx` on the existing endpoint downloads the student × subject matrix with
+  totals, averages, positions and a class-average row.
+- Excel files are generated with `openpyxl`; no pandas or native spreadsheet dependency is needed.
+
 ## Production deployment
 
 The production stack is three containers behind Nginx:
@@ -360,7 +393,7 @@ docker compose down -v                   # stop and delete database + media
 | `CSRF_TRUSTED_ORIGINS` | `http://localhost:8080` | Origins allowed to post forms (admin). |
 | `POSTGRES_DB` / `POSTGRES_USER` / `POSTGRES_PASSWORD` | `dashboard` | Database credentials; also composed into `DATABASE_URL`. |
 | `NGINX_PORT` | `8080` | Host port for the web container. |
-| `SCHOOL_NAME` | `Model Secondary School` | Masthead on report cards. |
+| `SCHOOL_NAME` | `Model Secondary School` | Initial name for the School profile; edit branding in Django admin afterwards. |
 | `SECURE_SSL_REDIRECT` | `False` | Set `True` once HTTPS terminates in front of Nginx (also enables secure cookies and HSTS). |
 | `PAYSTACK_SECRET_KEY` | empty | Paystack key used to start transactions and verify webhooks. Empty disables payments with a readable message. |
 | `TERMII_API_KEY` | empty | Termii API token; while empty SMS/WhatsApp attempts are recorded as failed (email fallback remains mocked). |
@@ -387,7 +420,7 @@ point the domain at it, then set `FRONTEND_URL=https://school.example`, `DJANGO_
 | `GET /api/sessions/`, `/api/terms/`, `/api/terms/current/` | Academic calendar |
 | `GET/POST /api/classes/` | Class list (teacher: own, student: theirs); create is admin-only |
 | `POST /api/classes/{id}/import-students/` | CSV/JSON student onboarding, capacity-checked |
-| `GET /api/classes/{id}/broadsheet/?session=&term=` | Students × subjects totals, averages, class averages and positions (published only) |
+| `GET /api/classes/{id}/broadsheet/?session=&term=` | Students × subjects totals, averages, class averages and positions (published only); add `&format=xlsx` for Excel |
 | `GET /api/classes/{id}/results/template/` | Blank CSV: `Admission Number, Subject, CA1, CA2, CA3, Exam` |
 | `POST /api/classes/{id}/results/bulk-import/` | Upsert results from that CSV; new rows stay drafts, row-level errors reported |
 | `GET /api/students/{id}/report-card/?session=&term=` | Print-ready HTML report card with positions, class averages and remark sections |
@@ -397,6 +430,10 @@ point the domain at it, then set `FRONTEND_URL=https://school.example`, `DJANGO_
 | `POST /api/payments/initialize/` | `{student_fee_id, amount?}` → Paystack checkout URL, pending `Payment` created |
 | `POST /api/webhooks/paystack/` | Signature-verified `charge.success` handler; credits the fee |
 | `GET /api/notifications/logs/` | Staff-only delivery history, rates and counts by channel/event |
+| `GET /api/school/` | Public school name, motto, logo, contacts and current term |
+| `GET /api/finance/summary/?session=&term=` | Staff-only expected, collected, outstanding and debtor counts |
+| `GET /api/finance/debtors/?session=&term=&search=&page=` | Staff-only paginated debtors, largest first, with guardian contacts |
+| `GET /api/finance/ledger/?session=&term=&format=xlsx` | Staff-only whole-school fee ledger; Excel with `format=xlsx`, JSON otherwise |
 | `GET/POST /api/subjects/` | Subjects of the caller's class |
 | `GET/POST /api/results/` | `?session=&term=&subject=&student=`; students see published only |
 | `GET/POST /api/lesson-notes/` | Weekly notes with `?subject=&term=` |

@@ -3,6 +3,7 @@ import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 
 import { AuthService } from '../../core/auth.service';
+import { SchoolService } from '../../core/school.service';
 
 @Component({
   selector: 'app-login',
@@ -11,11 +12,18 @@ import { AuthService } from '../../core/auth.service';
     <div class="auth-wrap">
       <div class="auth-card">
         <div class="brand" style="margin-bottom: 1.5rem">
-          <span class="brand-mark">A</span>
-          <span>School Portal</span>
+          @if (school()?.logo_url) {
+            <img class="brand-logo" [src]="school()!.logo_url" [alt]="school()!.name + ' logo'" />
+          } @else {
+            <span class="brand-mark">{{ school()?.initials || 'S' }}</span>
+          }
+          <span>{{ school()?.name || 'School Portal' }}</span>
         </div>
 
         <h1>Welcome back</h1>
+        @if (school()?.motto) {
+          <p class="muted small" style="margin-bottom: 0.35rem">{{ school()!.motto }}</p>
+        }
         <p class="muted small" style="margin-bottom: 1.5rem">
           Students sign in with their admission number. Teachers and parents use the username issued by the school office.
         </p>
@@ -60,7 +68,10 @@ import { AuthService } from '../../core/auth.service';
 })
 export class LoginPage {
   private readonly auth = inject(AuthService);
+  private readonly schoolService = inject(SchoolService);
   private readonly router = inject(Router);
+
+  readonly school = this.schoolService.school;
 
   username = '';
   password = '';

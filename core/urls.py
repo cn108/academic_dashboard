@@ -22,7 +22,11 @@ router.register("schedule", views.ScheduleViewSet, basename="schedule")
 
 urlpatterns = [
     path("api/health/", views.HealthView.as_view(), name="api-health"),
+    path("api/school/", views.SchoolBrandingView.as_view(), name="api-school"),
     path("api/me/", views.MeView.as_view(), name="api-me"),
+    path("api/finance/summary/", views.FinanceSummaryView.as_view(), name="finance-summary"),
+    path("api/finance/debtors/", views.FinanceDebtorsView.as_view(), name="finance-debtors"),
+    path("api/finance/ledger/", views.FinanceLedgerView.as_view(), name="finance-ledger"),
     path("api/me/password/", views.PasswordChangeView.as_view(), name="api-password-change"),
     path(
         "api/students/<int:pk>/reset-password/",

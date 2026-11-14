@@ -359,6 +359,53 @@ export function naira(value: string | number): string {
   return `₦${amount.toLocaleString('en-NG', { maximumFractionDigits: 2 })}`;
 }
 
+export interface SchoolBranding {
+  id: number;
+  name: string;
+  motto: string;
+  address: string;
+  phone: string;
+  email: string;
+  logo_url: string | null;
+  initials: string;
+  current_session: { id: number; name: string } | null;
+  current_term: { id: number; name: string; session_id: number; session_name: string } | null;
+}
+
+export interface FinanceSummary {
+  session: { id: number; name: string };
+  term: { id: number; name: string; session_name: string };
+  student_count: number;
+  billed_student_count: number;
+  total_expected: string;
+  total_collected: string;
+  outstanding: string;
+  fully_paid_count: number;
+  partial_count: number;
+  unpaid_count: number;
+  debtor_count: number;
+}
+
+export interface Guardian {
+  parent: number;
+  name: string;
+  relationship: string;
+  phone: string;
+  email: string;
+}
+
+export interface Debtor {
+  student: number;
+  full_name: string;
+  admission_number: string | null;
+  class_name: string | null;
+  expected: string;
+  paid: string;
+  balance: string;
+  status: 'paid' | 'partial' | 'unpaid' | 'no_fees';
+  guardians: Guardian[];
+}
+
 export function statusTone(status: PublishStatus): string {
   if (status === 'published') {
     return 'badge-success';

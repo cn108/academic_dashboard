@@ -199,6 +199,10 @@ REST_FRAMEWORK = {
     "DEFAULT_THROTTLE_CLASSES": ("rest_framework.throttling.ScopedRateThrottle",),
     "DEFAULT_THROTTLE_RATES": {"schedule": "240/min"},
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+    # Report and export endpoints use ?format=xlsx themselves. Left at DRF's
+    # default, ?format= is treated as a renderer override and rejected with a
+    # 404 before the view runs.
+    "URL_FORMAT_OVERRIDE": None,
 }
 
 SPECTACULAR_SETTINGS = {

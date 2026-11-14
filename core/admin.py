@@ -21,6 +21,7 @@ from .models import (
     Profile,
     Result,
     Schedule,
+    School,
     SchoolClass,
     StudentFee,
     Subject,
@@ -62,6 +63,31 @@ class ProfileAdmin(admin.ModelAdmin):
     list_display = ("user", "role", "admission_number", "gender", "school_class")
     list_filter = ("role", "gender", "school_class")
     search_fields = ("user__username", "admission_number")
+
+
+@admin.register(School)
+class SchoolAdmin(admin.ModelAdmin):
+    """The singleton school profile: logo, contacts and the current period."""
+
+    list_display = ("name", "current_session", "current_term", "phone", "email")
+    fieldsets = (
+        (
+            "Identity",
+            {
+                "fields": ("name", "motto", "logo"),
+                "description": "Shown on report cards, exports, the login page and the portal sidebar.",
+            },
+        ),
+        ("Contact", {"fields": ("address", "phone", "email")}),
+        ("Current period", {"fields": ("current_session", "current_term")}),
+    )
+
+    def has_add_permission(self, request):
+        # One row for now; the slug and model boundaries allow more later.
+        return not School.objects.exists()
+
+    def has_delete_permission(self, request, obj=None):
+        return False
 
 
 @admin.register(AcademicSession)

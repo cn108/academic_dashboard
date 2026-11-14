@@ -1,6 +1,6 @@
 import { Routes } from '@angular/router';
 
-import { authGuard, homeRedirect, passwordGuard, roleGuard } from './core/guards';
+import { authGuard, homeRedirect, passwordGuard, roleGuard, staffGuard } from './core/guards';
 import { Shell } from './shell/shell';
 
 export const routes: Routes = [
@@ -97,6 +97,11 @@ export const routes: Routes = [
           {
             path: 'attendance',
             loadComponent: () => import('./pages/teacher/attendance').then((m) => m.TeacherAttendance),
+          },
+          {
+            path: 'finance',
+            canActivate: [staffGuard],
+            loadComponent: () => import('./pages/staff/finance').then((m) => m.StaffFinance),
           },
           { path: '', pathMatch: 'full', redirectTo: 'dashboard' },
         ],

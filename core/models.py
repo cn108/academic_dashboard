@@ -171,6 +171,89 @@ class Term(models.Model):
         return cls.objects.filter(is_current=True).select_related("session").first()
 
 
+class School(models.Model):
+    """The school's identity and current period.
+
+    Today this is a single global row (see :meth:`load`). The unique ``slug``
+    and the model's own settings are what a future multi-tenant deployment
+    would build on: every tenant-aware model can gain a ``school`` foreign key
+    without reshaping this one, and the same row supplies logos, addresses and
+    the current session/term to report cards, exports and the SPA.
+    """
+
+    DEFAULT_SLUG = "default"
+
+    slug = models.SlugField(max_length=60, unique=True, default=DEFAULT_SLUG)
+    name = models.CharField(max_length=200, help_text="e.g. Model Secondary School")
+    motto = models.CharField(max_length=200, blank=True)
+    address = models.TextField(blank=True)
+    phone = models.CharField(max_length=40, blank=True)
+    email = models.EmailField(blank=True)
+    logo = models.ImageField(upload_to="school/", blank=True)
+    current_session = models.ForeignKey(
+        AcademicSession,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="schools_current",
+    )
+    current_term = models.ForeignKey(
+        Term,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="schools_current",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["name"]
+        verbose_name_plural = "school"
+
+    def __str__(self):
+        return self.name
+
+    @classmethod
+    def load(cls):
+        """The school's configuration row, created from settings on first use."""
+        school, _created = cls.objects.get_or_create(
+            slug=cls.DEFAULT_SLUG,
+            defaults={"name": settings.SCHOOL_NAME},
+        )
+        return school
+
+    def clean(self):
+        if (
+            self.current_term_id
+            and self.current_session_id
+            and self.current_term.session_id != self.current_session_id
+        ):
+            raise ValidationError({"current_term": "The term does not belong to the chosen session."})
+
+    def save(self, *args, **kwargs):
+        if self.current_term_id and not self.current_session_id:
+            self.current_session_id = self.current_term.session_id
+        super().save(*args, **kwargs)
+        # Keep the single app-wide "current period" in step with this profile.
+        if self.current_term_id and not self.current_term.is_current:
+            self.current_term.is_current = True
+            self.current_term.save()
+        if self.current_session_id and not self.current_session.is_current:
+            self.current_session.is_current = True
+            self.current_session.save()
+
+    @property
+    def display_name(self):
+        return self.name or settings.SCHOOL_NAME
+
+    @property
+    def initials(self):
+        """Fallback crest letters when no logo has been uploaded."""
+        letters = [word[0] for word in self.display_name.split() if word]
+        return "".join(letters[:3]).upper() or "S"
+
+
 class SchoolClass(models.Model):
     """A class arm a teacher manages, e.g. JSS 2A."""
 

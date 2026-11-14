@@ -21,6 +21,7 @@ from django.utils.text import slugify
 from rest_framework import viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError
+from rest_framework.pagination import PageNumberPagination
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.permissions import SAFE_METHODS, AllowAny, IsAdminUser, IsAuthenticated
 from rest_framework.response import Response
@@ -28,6 +29,8 @@ from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
+from .exports import broadsheet_workbook, ledger_workbook, xlsx_response
+from .finance import debtors, finance_summary, ledger_row, student_fee_positions, summary_payload
 from .models import (
     CA_MAX,
     EXAM_MAX,
@@ -42,6 +45,7 @@ from .models import (
     PublishStatus,
     Result,
     Schedule,
+    School,
     SchoolClass,
     Subject,
     Submission,
@@ -50,7 +54,7 @@ from .models import (
     role_of,
 )
 from .permissions import IsStaffOrReadOnly, IsTeacher
-from .reports import build_broadsheet, build_report_card
+from .reports import build_broadsheet, build_report_card, school_branding
 from .serializers import (
     AcademicSessionSerializer,
     AnnouncementSerializer,
@@ -157,6 +161,20 @@ class TokenLoginView(TokenObtainPairView):
 
 class TokenRefreshAPIView(TokenRefreshView):
     authentication_classes = ()
+
+
+class SchoolBrandingView(APIView):
+    """The school's name, logo and contact details.
+
+    Public on purpose: the login page shows the school's identity before anyone
+    has signed in. Nothing sensitive lives here.
+    """
+
+    authentication_classes = ()
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        return Response(school_branding(School.load(), request))
 
 
 class MeView(APIView):
@@ -560,7 +578,14 @@ class SchoolClassViewSet(viewsets.ModelViewSet):
         if not school_class.can_manage(request.user):
             raise PermissionDenied("Only the class teacher or a principal can open the broadsheet.")
         session, term = resolve_period(request)
-        return Response(build_broadsheet(school_class, session, term))
+        sheet = build_broadsheet(school_class, session, term)
+        if request.query_params.get("format") == "xlsx":
+            workbook = broadsheet_workbook(sheet, School.load().display_name)
+            filename = (
+                f"broadsheet-{slugify(school_class.name)}-{slugify(session.name)}-{slugify(term.name)}.xlsx"
+            )
+            return xlsx_response(workbook, filename)
+        return Response(sheet)
 
     @action(detail=True, methods=["get"], url_path="results/template")
     def results_template(self, request, pk=None):
@@ -1021,6 +1046,70 @@ class NotificationLogsView(APIView):
                     "by_event": grouped("event_type"),
                 },
                 "logs": rows,
+            }
+        )
+
+
+# ---------------------------------------------------------------------------
+# Finance (the bursar's dashboard)
+# ---------------------------------------------------------------------------
+class FinanceSummaryView(APIView):
+    """Expected, collected and outstanding fees for one session and term."""
+
+    permission_classes = [IsAdminUser]
+
+    def get(self, request):
+        session, term = resolve_period(request)
+        positions = student_fee_positions(session, term)
+        return Response(
+            {
+                "session": {"id": session.pk, "name": session.name},
+                "term": {"id": term.pk, "name": term.name, "session_name": session.name},
+                **summary_payload(finance_summary(positions)),
+            }
+        )
+
+
+class FinanceDebtorsView(APIView):
+    """Students with an outstanding balance, biggest debt first."""
+
+    permission_classes = [IsAdminUser]
+
+    def get(self, request):
+        session, term = resolve_period(request)
+        rows = debtors(
+            student_fee_positions(session, term),
+            request.query_params.get("search", ""),
+        )
+        paginator = PageNumberPagination()
+        page = paginator.paginate_queryset([ledger_row(row) for row in rows], request)
+        return paginator.get_paginated_response(page)
+
+
+class FinanceLedgerView(APIView):
+    """Every student's fee position for the term, as JSON or an .xlsx download."""
+
+    permission_classes = [IsAdminUser]
+
+    def get(self, request):
+        session, term = resolve_period(request)
+        positions = sorted(
+            student_fee_positions(session, term),
+            key=lambda row: (row["class_name"] or "", row["full_name"]),
+        )
+        school = School.load()
+        if request.query_params.get("format") == "xlsx":
+            workbook = ledger_workbook(positions, session.name, term.name, school.display_name)
+            filename = f"fee-ledger-{slugify(session.name)}-{slugify(term.name)}.xlsx"
+            return xlsx_response(workbook, filename)
+
+        return Response(
+            {
+                "session": {"id": session.pk, "name": session.name},
+                "term": {"id": term.pk, "name": term.name, "session_name": session.name},
+                "school": school_branding(school, request),
+                "students": [ledger_row(row) for row in positions],
+                "summary": summary_payload(finance_summary(positions)),
             }
         )
 

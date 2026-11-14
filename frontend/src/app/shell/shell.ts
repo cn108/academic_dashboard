@@ -2,6 +2,7 @@ import { Component, computed, inject } from '@angular/core';
 import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 
 import { AuthService } from '../core/auth.service';
+import { SchoolService } from '../core/school.service';
 
 @Component({
   selector: 'app-shell',
@@ -10,8 +11,12 @@ import { AuthService } from '../core/auth.service';
     <div class="shell">
       <aside class="sidebar">
         <div class="brand">
-          <span class="brand-mark">A</span>
-          <span>School<br />Portal</span>
+          @if (school()?.logo_url) {
+            <img class="brand-logo" [src]="school()!.logo_url" [alt]="school()!.name + ' logo'" />
+          } @else {
+            <span class="brand-mark">{{ school()?.initials || 'S' }}</span>
+          }
+          <span>{{ school()?.name || 'School Portal' }}</span>
         </div>
 
         <nav class="nav">
@@ -27,6 +32,9 @@ import { AuthService } from '../core/auth.service';
             <a routerLink="/teacher/submissions" routerLinkActive="active">Submissions</a>
             <a routerLink="/teacher/announcements" routerLinkActive="active">Announcements</a>
             <a routerLink="/teacher/attendance" routerLinkActive="active">Attendance</a>
+            @if (user()?.is_staff) {
+              <a routerLink="/teacher/finance" routerLinkActive="active">Finance</a>
+            }
           } @else if (role() === 'parent') {
             <a routerLink="/parent/dashboard" routerLinkActive="active">Overview</a>
             <a routerLink="/parent/results" routerLinkActive="active">Ward results</a>
@@ -63,8 +71,10 @@ import { AuthService } from '../core/auth.service';
 })
 export class Shell {
   private readonly auth = inject(AuthService);
+  private readonly schoolService = inject(SchoolService);
 
   readonly user = this.auth.user;
+  readonly school = this.schoolService.school;
   readonly role = computed(() => this.auth.role());
   readonly navLabel = computed(() => {
     if (this.role() === 'teacher') {

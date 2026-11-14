@@ -8,9 +8,7 @@ from __future__ import annotations
 
 from statistics import mean
 
-from django.conf import settings
-
-from .models import PublishStatus, Result, SchoolClass, Term
+from .models import PublishStatus, Result, School, SchoolClass, Term
 
 AFFECTIVE_TRAITS = [
     "Punctuality",
@@ -71,6 +69,41 @@ def ordinal(number: int) -> str:
     else:
         suffix = {1: "st", 2: "nd", 3: "rd"}.get(number % 10, "th")
     return f"{number}{suffix}"
+
+
+def school_branding(school: School, request=None) -> dict:
+    """The identity every surface (report card, login, shell, exports) displays."""
+    logo_url = None
+    if school.logo:
+        logo_url = school.logo.url
+        if request is not None:
+            logo_url = request.build_absolute_uri(logo_url)
+
+    current_session = school.current_session
+    current_term = school.current_term
+    return {
+        "id": school.pk,
+        "name": school.display_name,
+        "motto": school.motto,
+        "address": school.address,
+        "phone": school.phone,
+        "email": school.email,
+        "logo_url": logo_url,
+        "initials": school.initials,
+        "current_session": (
+            {"id": current_session.pk, "name": current_session.name} if current_session else None
+        ),
+        "current_term": (
+            {
+                "id": current_term.pk,
+                "name": current_term.name,
+                "session_id": current_term.session_id,
+                "session_name": current_term.session.name,
+            }
+            if current_term
+            else None
+        ),
+    }
 
 
 def build_broadsheet(school_class: SchoolClass, session, term: Term) -> dict:
@@ -190,8 +223,11 @@ def build_report_card(student, session, term: Term) -> dict | None:
         f"{ordinal(position)} out of {sheet['student_count']} students" if position else "Not ranked yet"
     )
 
+    school = School.load()
     return {
-        "school_name": settings.SCHOOL_NAME,
+        "school": school_branding(school),
+        # Kept for API clients that already read this key.
+        "school_name": school.display_name,
         "student": {
             "id": student.pk,
             "full_name": student.get_full_name() or student.get_username(),

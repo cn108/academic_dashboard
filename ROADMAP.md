@@ -32,6 +32,16 @@ Frontend (Angular 22 SPA)
 - [x] Broadsheet page, announcements editing, lesson-note attachments, upload validation
 - [x] Role-aware shell, budgeted low-bandwidth build (~304 kB initial / ~85 kB transfer)
 
+Version 1.4 — school branding, Excel exports and the bursar's dashboard
+
+- [x] `School` profile (name, motto, address, contacts, logo, current session/term), editable in admin
+- [x] Report-card masthead, login page and portal sidebar render the school's name, logo and motto
+- [x] `?format=xlsx` broadsheet export: subjects, totals, averages, positions and class-average row
+- [x] Fee ledger export and JSON view for every student, including classes with no fee configured
+- [x] Staff-only finance summary and paginated debtors list with guardian phone contacts
+- [x] Finance dashboard in the SPA (summary cards, searchable debtors, ledger download)
+- [x] 23 tests for finance maths, debtors, Excel workbooks and branding
+
 Version 1.3 — real Termii delivery and password recovery
 
 - [x] Termii transactional SMS adapter (`api.ng.termii.com/api/sms/send`, `channel=dnd`, 10s timeout)

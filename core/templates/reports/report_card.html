@@ -59,6 +59,13 @@
         letter-spacing: 0.5px;
       }
 
+      img.crest {
+        object-fit: contain;
+        border-radius: 0;
+        border-color: transparent;
+        background: #fff;
+      }
+
       .masthead h1 {
         margin: 0;
         font-size: 21px;
@@ -73,6 +80,18 @@
         color: var(--muted);
         text-transform: uppercase;
         letter-spacing: 1.2px;
+      }
+
+      .masthead p.motto {
+        font-style: italic;
+        text-transform: none;
+        letter-spacing: 0.2px;
+      }
+
+      .masthead p.address {
+        text-transform: none;
+        letter-spacing: 0.2px;
+        max-width: 130mm;
       }
 
       .title-row {
@@ -339,9 +358,22 @@
 
     <main class="sheet">
       <header class="masthead">
-        <div class="crest">SMS</div>
+        {% if school.logo_url %}
+        <img class="crest" src="{{ school.logo_url }}" alt="{{ school.name }} logo" />
+        {% else %}
+        <div class="crest">{{ school.initials }}</div>
+        {% endif %}
         <div>
-          <h1>{{ school_name }}</h1>
+          <h1>{{ school.name }}</h1>
+          {% if school.motto %}<p class="motto">{{ school.motto }}</p>{% endif %}
+          {% if school.address %}<p class="address">{{ school.address }}</p>{% endif %}
+          {% if school.phone or school.email %}
+          <p>
+            {% if school.phone %}{{ school.phone }}{% endif %}
+            {% if school.phone and school.email %} · {% endif %}
+            {% if school.email %}{{ school.email }}{% endif %}
+          </p>
+          {% endif %}
           <p>Terminal report sheet · academic session {{ session.name }}</p>
         </div>
       </header>

@@ -22,9 +22,9 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from .finance import ensure_student_fees
 from .models import (
     Attendance,
-    Fee,
     ParentStudentLink,
     Payment,
     Profile,
@@ -53,21 +53,6 @@ def require_parent(request) -> None:
 
 def parent_links(user):
     return ParentStudentLink.objects.filter(parent=user).select_related("student__profile__school_class")
-
-
-def ensure_student_fees(student, session, term) -> list[StudentFee]:
-    """Create the student's rows for every fee that applies to their class level."""
-    profile = getattr(student, "profile", None)
-    school_class = profile.school_class if profile else None
-    if school_class is None:
-        return []
-
-    rows = []
-    fees = Fee.objects.filter(session=session, term=term, class_level=school_class.level)
-    for fee in fees:
-        row, _created = StudentFee.objects.get_or_create(student=student, fee=fee)
-        rows.append(row)
-    return rows
 
 
 def term_payload(term: Term | None) -> dict | None:

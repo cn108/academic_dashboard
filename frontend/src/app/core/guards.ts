@@ -34,6 +34,20 @@ export const roleGuard = (role: Role): CanActivateFn => () => {
   return router.parseUrl(auth.homeFor(current));
 };
 
+/** Administration screens (finance, notifications) are for office staff only. */
+export const staffGuard: CanActivateFn = () => {
+  const auth = inject(AuthService);
+  const router = inject(Router);
+
+  if (!auth.accessToken) {
+    return router.parseUrl('/login');
+  }
+  if (auth.user()?.is_staff) {
+    return true;
+  }
+  return router.parseUrl(auth.homeFor(auth.role()));
+};
+
 export const homeRedirect: CanActivateFn = () => {
   const auth = inject(AuthService);
   const router = inject(Router);
