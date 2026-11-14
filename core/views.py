@@ -16,6 +16,7 @@ from django.db.models import Count, Q
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, render
 from django.utils import timezone
+from django.utils.crypto import get_random_string
 from django.utils.text import slugify
 from rest_framework import viewsets
 from rest_framework.decorators import action
@@ -902,6 +903,74 @@ class AttendanceViewSet(viewsets.ModelViewSet):
             )
             entry[row["status"]] = row["total"]
         return Response(list(summary.values()))
+
+
+def reset_student_password(student):
+    """Set a fresh temporary password and require it to be changed at login."""
+    temporary_password = get_random_string(
+        16, allowed_chars="abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+    )
+    student.set_password(temporary_password)
+    student.save(update_fields=["password"])
+    profile = profile_for(student)
+    profile.must_change_password = True
+    profile.save(update_fields=["must_change_password"])
+    return temporary_password
+
+
+class StudentPasswordResetView(APIView):
+    """A student's class teacher (or staff) can issue one temporary password."""
+
+    def post(self, request, pk):
+        student = get_object_or_404(User.objects.select_related("profile__school_class"), pk=pk)
+        profile = profile_for(student)
+        school_class = profile.school_class
+        if not request.user.is_staff and (
+            role_of(request.user) != Profile.TEACHER
+            or school_class is None
+            or school_class.class_teacher_id != request.user.pk
+        ):
+            raise PermissionDenied(
+                "Only the student's class teacher or school staff can reset this password."
+            )
+        if profile.role != Profile.STUDENT:
+            raise ValidationError({"student": "Only student accounts can be reset here."})
+
+        temporary_password = reset_student_password(student)
+        return Response(
+            {
+                "student_id": student.pk,
+                "student_name": student.get_full_name() or student.username,
+                "temporary_password": temporary_password,
+                "must_change_password": True,
+                "detail": "Give this temporary password to the student. It is shown only in this response.",
+            }
+        )
+
+
+class ParentWardPasswordResetView(APIView):
+    """Only school staff can issue a temporary password from the parent-ward route."""
+
+    permission_classes = [IsAdminUser]
+
+    def post(self, request, pk):
+        student = get_object_or_404(User.objects.select_related("profile__school_class"), pk=pk)
+        profile = profile_for(student)
+        if profile.role != Profile.STUDENT:
+            raise ValidationError({"student": "Only student accounts can be reset here."})
+        if not ParentStudentLink.objects.filter(student=student).exists():
+            raise ValidationError({"student": "This student is not linked as a parent's ward."})
+
+        temporary_password = reset_student_password(student)
+        return Response(
+            {
+                "student_id": student.pk,
+                "student_name": student.get_full_name() or student.username,
+                "temporary_password": temporary_password,
+                "must_change_password": True,
+                "detail": "Give this temporary password to the parent. It is shown only in this response.",
+            }
+        )
 
 
 class NotificationLogsView(APIView):

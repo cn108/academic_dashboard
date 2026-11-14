@@ -25,6 +25,16 @@ urlpatterns = [
     path("api/me/", views.MeView.as_view(), name="api-me"),
     path("api/me/password/", views.PasswordChangeView.as_view(), name="api-password-change"),
     path(
+        "api/students/<int:pk>/reset-password/",
+        views.StudentPasswordResetView.as_view(),
+        name="student-password-reset",
+    ),
+    path(
+        "api/parent/wards/<int:pk>/reset-password/",
+        views.ParentWardPasswordResetView.as_view(),
+        name="parent-ward-password-reset",
+    ),
+    path(
         "api/students/<int:pk>/report-card/",
         views.StudentReportCardView.as_view(),
         name="api-student-report-card",

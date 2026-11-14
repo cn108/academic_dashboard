@@ -4,6 +4,14 @@ import { FormsModule } from '@angular/forms';
 import { ApiService } from '../../core/api.service';
 import { SchoolClass, StudentImportResult, Subject } from '../../core/models';
 
+interface PasswordResetResponse {
+  student_id: number;
+  student_name: string;
+  temporary_password: string;
+  must_change_password: boolean;
+  detail: string;
+}
+
 @Component({
   selector: 'app-class-roster',
   imports: [FormsModule],
@@ -29,6 +37,25 @@ import { SchoolClass, StudentImportResult, Subject } from '../../core/models';
     }
     @if (error()) {
       <div class="alert alert-error">{{ error() }}</div>
+    }
+
+    @if (resetResult(); as reset) {
+      <div class="card" role="dialog" aria-labelledby="reset-title" style="margin-bottom: 1rem">
+        <div class="card-head">
+          <h2 id="reset-title" style="font-size: 1rem">Temporary password for {{ reset.student_name }}</h2>
+          <button class="btn btn-ghost btn-sm" type="button" (click)="closeReset()">Close</button>
+        </div>
+        <div class="alert alert-error">
+          This password is displayed only once. Write it down and hand it directly to the student;
+          they must change it at their next sign-in.
+        </div>
+        <div style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap">
+          <code style="font-size: 1.1rem; user-select: all">{{ reset.temporary_password }}</code>
+          <button class="btn btn-ghost btn-sm" type="button" (click)="copyPassword()">
+            {{ copied() ? 'Copied' : 'Copy password' }}
+          </button>
+        </div>
+      </div>
     }
 
     <div class="split">
@@ -90,6 +117,7 @@ import { SchoolClass, StudentImportResult, Subject } from '../../core/models';
                   <th>Name</th>
                   <th>Admission no.</th>
                   <th>Gender</th>
+                  <th>Account</th>
                 </tr>
               </thead>
               <tbody>
@@ -99,6 +127,12 @@ import { SchoolClass, StudentImportResult, Subject } from '../../core/models';
                     <td style="font-weight: 600">{{ student.full_name }}</td>
                     <td class="muted">{{ student.admission_number }}</td>
                     <td class="muted">{{ student.gender || '—' }}</td>
+                    <td>
+                      <button class="btn btn-ghost btn-sm" type="button" [disabled]="resetBusy()"
+                        (click)="resetPassword(student.id)">
+                        {{ resetBusy() ? 'Resetting…' : 'Reset password' }}
+                      </button>
+                    </td>
                   </tr>
                 }
               </tbody>
@@ -117,6 +151,9 @@ export class ClassRoster {
   readonly schoolClass = signal<SchoolClass | null>(null);
   readonly subjects = signal<Subject[]>([]);
   readonly result = signal<StudentImportResult | null>(null);
+  readonly resetResult = signal<PasswordResetResponse | null>(null);
+  readonly copied = signal(false);
+  readonly resetBusy = signal(false);
   readonly message = signal('');
   readonly error = signal('');
   readonly busy = signal(false);
@@ -168,5 +205,40 @@ export class ClassRoster {
         );
       },
     });
+  }
+
+  resetPassword(studentId: number): void {
+    this.resetBusy.set(true);
+    this.resetResult.set(null);
+    this.copied.set(false);
+    this.error.set('');
+    this.api.action<PasswordResetResponse>(`students/${studentId}/reset-password`).subscribe({
+      next: (response) => {
+        this.resetBusy.set(false);
+        this.resetResult.set(response);
+      },
+      error: () => {
+        this.resetBusy.set(false);
+        this.error.set('Could not reset that password. Check your class access and try again.');
+      },
+    });
+  }
+
+  async copyPassword(): Promise<void> {
+    const password = this.resetResult()?.temporary_password;
+    if (!password) {
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(password);
+      this.copied.set(true);
+    } catch {
+      this.error.set('Clipboard access was blocked. Select and copy the temporary password manually.');
+    }
+  }
+
+  closeReset(): void {
+    this.resetResult.set(null);
+    this.copied.set(false);
   }
 }
