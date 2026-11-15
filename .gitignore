@@ -17,6 +17,9 @@ staticfiles/
 
 # Local configuration / secrets
 .env
+.env.*
+!.env.example
+!.env.production.example
 
 # Database dumps (may contain student data)
 backups/

@@ -21,8 +21,9 @@ RUN pip install --upgrade pip \
 COPY . .
 
 # Collected at build time; WhiteNoise serves /static/ (admin assets, DRF docs).
-RUN SECRET_KEY=build-only-key DEBUG=False SERVE_MEDIA=True \
-    python manage.py collectstatic --noinput
+# The secret is generated inside the build layer, never stored in the image.
+RUN SECRET_KEY="$(python -c 'import secrets; print(secrets.token_urlsafe(64))')" \
+    DEBUG=False SERVE_MEDIA=True python manage.py collectstatic --noinput
 
 RUN useradd --create-home --uid 1000 appuser \
     && mkdir -p /app/media /app/staticfiles \

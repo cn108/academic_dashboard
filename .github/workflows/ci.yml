@@ -15,7 +15,6 @@ jobs:
     runs-on: ubuntu-latest
     env:
       DEBUG: "False"
-      SECRET_KEY: ci-only-9f2a7c41e8b64d0fa3c5e71b928d46af0c3e7b15d8a24f6c
       ALLOWED_HOSTS: localhost,127.0.0.1
       DATABASE_URL: sqlite:///db.sqlite3
       AXES_ENABLED: "False"
@@ -31,6 +30,9 @@ jobs:
           cache-dependency-path: |
             requirements.txt
             requirements-dev.txt
+
+      - name: Generate ephemeral CI secret
+        run: echo "SECRET_KEY=$(python -c 'import secrets; print(secrets.token_urlsafe(64))')" >> "$GITHUB_ENV"
 
       - name: Install dependencies
         run: |
@@ -50,7 +52,7 @@ jobs:
         run: python manage.py check
 
       - name: Deployment checks
-        run: python manage.py check --deploy --fail-level ERROR
+        run: python manage.py check --deploy --tag security
 
       - name: Check migrations are up to date
         run: python manage.py makemigrations --check --dry-run

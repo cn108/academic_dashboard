@@ -2,8 +2,8 @@
 Django settings for the academic dashboard.
 
 Configuration is environment-driven so the same code runs locally, in CI and in
-production. Locally the defaults are safe for development; in production set
-DEBUG=False and provide SECRET_KEY, ALLOWED_HOSTS and DATABASE_URL.
+production. Copy .env.example (or .env.production.example) and provide
+SECRET_KEY, database settings, hosts and any provider keys.
 """
 
 from datetime import timedelta
@@ -17,7 +17,6 @@ env = environ.Env(
     DEBUG=(bool, False),
     ALLOWED_HOSTS=(list, ["localhost", "127.0.0.1"]),
     CSRF_TRUSTED_ORIGINS=(list, []),
-    SECRET_KEY=(str, "django-insecure-local-development-only"),
     DATABASE_URL=(str, f"sqlite:///{BASE_DIR / 'db.sqlite3'}"),
     REDIS_URL=(str, ""),
     AXES_ENABLED=(bool, True),

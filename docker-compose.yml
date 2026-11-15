@@ -9,7 +9,7 @@ services:
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-dashboard}
       POSTGRES_USER: ${POSTGRES_USER:-dashboard}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-dashboard}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -25,11 +25,11 @@ services:
       dockerfile: Dockerfile.prod
     environment:
       DEBUG: "False"
-      SECRET_KEY: ${SECRET_KEY:-local-production-secret-change-me}
+      SECRET_KEY: ${SECRET_KEY:?set SECRET_KEY in .env}
       DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-localhost,127.0.0.1,backend}
       FRONTEND_URL: ${FRONTEND_URL:-http://localhost:8080}
       CSRF_TRUSTED_ORIGINS: ${CSRF_TRUSTED_ORIGINS:-http://localhost:8080}
-      DATABASE_URL: postgres://${POSTGRES_USER:-dashboard}:${POSTGRES_PASSWORD:-dashboard}@db:5432/${POSTGRES_DB:-dashboard}
+      DATABASE_URL: postgres://${POSTGRES_USER:-dashboard}:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@db:5432/${POSTGRES_DB:-dashboard}
       DEFAULT_STUDENT_PASSWORD: ${DEFAULT_STUDENT_PASSWORD:-Student@1234}
       SCHOOL_NAME: ${SCHOOL_NAME:-Model Secondary School}
       SERVE_MEDIA: "True"

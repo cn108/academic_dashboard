@@ -18,7 +18,8 @@ RUN pip install --upgrade pip && pip install -r requirements.txt psycopg[binary]
 
 COPY . .
 
-RUN SECRET_KEY=build-only-key DEBUG=False python manage.py collectstatic --noinput
+RUN SECRET_KEY="$(python -c 'import secrets; print(secrets.token_urlsafe(64))')" \
+    DEBUG=False python manage.py collectstatic --noinput
 
 RUN useradd --create-home appuser && chown -R appuser:appuser /app
 USER appuser

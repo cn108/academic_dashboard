@@ -3,6 +3,8 @@
 Idempotent: class sizes and scores are stable across repeated runs.
 """
 
+import os
+import secrets
 from datetime import timedelta
 from decimal import Decimal
 
@@ -33,9 +35,11 @@ from core.models import (
 )
 
 TEACHER_USERNAME = "teacher"
-TEACHER_PASSWORD = "teach-pass-1234"
 PARENT_USERNAME = "parent"
-PARENT_PASSWORD = "parent-pass-1234"
+# Demo-only credentials: fixed via environment for repeatable demos, otherwise
+# generated and printed once by the command. Never use demo accounts in prod.
+TEACHER_PASSWORD = os.environ.get("DEMO_TEACHER_PASSWORD") or secrets.token_urlsafe(12)
+PARENT_PASSWORD = os.environ.get("DEMO_PARENT_PASSWORD") or secrets.token_urlsafe(12)
 STUDENTS = [
     ("Chidera Okafor", "JSS2A-001", "F"),
     ("Emeka Nwosu", "JSS2A-002", "M"),

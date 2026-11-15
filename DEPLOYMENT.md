@@ -170,7 +170,7 @@ Create the file:
 
 ```bash
 cd /srv/academic-dashboard
-cp .env.example .env
+cp .env.production.example .env
 chmod 600 .env
 nano .env
 ```
@@ -287,7 +287,8 @@ Open `https://school.example.edu.ng/admin/` and:
 4. Do not leave demo accounts in a live school.
 
 `seed_demo` is **only** for a pilot or demonstration. It creates sample students,
-teachers and records:
+teachers and records, then prints the generated teacher and parent credentials
+(unless `DEMO_TEACHER_PASSWORD` / `DEMO_PARENT_PASSWORD` are fixed first):
 
 ```bash
 # Optional demo data — never on a real school database.
