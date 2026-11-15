@@ -77,6 +77,7 @@ def test_school_period_syncs_the_app_wide_current_term(school, session, term):
     school.current_term = second
     school.save()
 
+    second.refresh_from_db()
     assert second.is_current is True
     assert Term.current() == second
     assert school.current_term_id == second.pk

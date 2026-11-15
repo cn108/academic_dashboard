@@ -85,7 +85,7 @@ import {
             <a class="small" routerLink="/student/learning">Learning hub</a>
           </div>
           @if (progress(); as summary) {
-            <div style="display: flex; align-items: center; gap: 1rem">
+            <div class="progress-summary">
               <svg
                 class="progress-ring"
                 viewBox="0 0 80 80"
@@ -105,14 +105,14 @@ import {
                   {{ summary.resources.percentage }}%
                 </text>
               </svg>
-              <div>
+              <div class="progress-copy">
                 <p style="font-weight: 600">
                   {{ summary.resources.completed }} of {{ summary.resources.total }} resources
                 </p>
                 <p class="muted small">{{ summary.term?.name || 'Current term' }}</p>
               </div>
             </div>
-            <p class="small" style="margin-top: 0.75rem">
+            <p class="small trend-text" style="margin-top: 0.75rem">
               @if (trend()) {
                 <span class="trend-arrow" [class.down]="!trendUp()">
                   {{ trendUp() ? '↑' : '↓' }}

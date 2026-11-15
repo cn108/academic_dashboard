@@ -227,7 +227,7 @@ function blankDraft(): Draft {
                   <textarea rows="2" [(ngModel)]="draft.text"></textarea>
                 </div>
 
-                <div class="grid grid-2">
+                <div class="grid grid-2 option-grid">
                   @for (option of draft.options; track $index; let choice = $index) {
                     <div class="field" style="margin-bottom: 0">
                       <label>

@@ -143,6 +143,11 @@ class AcademicSession(models.Model):
         if self.is_current:
             AcademicSession.objects.exclude(pk=self.pk).update(is_current=False)
 
+    @classmethod
+    def current(cls):
+        """The session the school profile says is running right now."""
+        return School.get_solo().current_session
+
 
 class Term(models.Model):
     FIRST = "First Term"
@@ -168,7 +173,8 @@ class Term(models.Model):
 
     @classmethod
     def current(cls):
-        return cls.objects.filter(is_current=True).select_related("session").first()
+        """The term configured on the school profile; ``is_current`` is only a cache."""
+        return School.get_solo().current_term
 
 
 class School(models.Model):
@@ -223,6 +229,11 @@ class School(models.Model):
         )
         return school
 
+    @classmethod
+    def get_solo(cls):
+        """The single school row that owns the app-wide current period."""
+        return cls.load()
+
     def clean(self):
         if (
             self.current_term_id
@@ -232,16 +243,26 @@ class School(models.Model):
             raise ValidationError({"current_term": "The term does not belong to the chosen session."})
 
     def save(self, *args, **kwargs):
-        if self.current_term_id and not self.current_session_id:
+        if self.current_term_id:
+            # The term determines its session; never leave a mismatched pair.
             self.current_session_id = self.current_term.session_id
         super().save(*args, **kwargs)
-        # Keep the single app-wide "current period" in step with this profile.
-        if self.current_term_id and not self.current_term.is_current:
-            self.current_term.is_current = True
-            self.current_term.save()
-        if self.current_session_id and not self.current_session.is_current:
-            self.current_session.is_current = True
-            self.current_session.save()
+        self.sync_current_period()
+
+    def sync_current_period(self):
+        """Mirror the school's current period onto the legacy ``is_current`` flags.
+
+        Those flags are a cached view for older screens and admin lists; this row
+        is the only authority. Updating through querysets keeps the mirror exact
+        even when multiple rows were previously left marked current.
+        """
+        AcademicSession.objects.exclude(pk=self.current_session_id).update(is_current=False)
+        if self.current_session_id:
+            AcademicSession.objects.filter(pk=self.current_session_id).update(is_current=True)
+
+        Term.objects.exclude(pk=self.current_term_id).update(is_current=False)
+        if self.current_term_id:
+            Term.objects.filter(pk=self.current_term_id).update(is_current=True)
 
     @property
     def display_name(self):

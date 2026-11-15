@@ -11,14 +11,14 @@ import { QuizStart, QuizSubmitResult } from '../../core/models';
     <div class="exam">
       @if (!result() && data(); as exam) {
         <div class="exam-bar">
-          <div>
+          <div class="exam-heading">
             <p class="eyebrow">Exam room</p>
-            <h1 style="font-size: 1.25rem">{{ exam.quiz.title }}</h1>
+            <h1 class="exam-title">{{ exam.quiz.title }}</h1>
             <p class="muted small">
               {{ exam.questions.length }} questions · {{ exam.quiz.total_points }} points
             </p>
           </div>
-          <div style="text-align: right">
+          <div class="exam-clock">
             <p class="exam-timer" [class.urgent]="remaining() <= 60">{{ clock() }}</p>
             <p class="muted small">time remaining</p>
           </div>
@@ -58,7 +58,12 @@ import { QuizStart, QuizSubmitResult } from '../../core/models';
 
         <div class="exam-actions">
           <p class="muted small">Answers are graded on the school server when you submit.</p>
-          <button class="btn" type="button" [disabled]="submitting()" (click)="submit()">
+          <button
+            class="btn exam-submit"
+            type="button"
+            [disabled]="submitting()"
+            (click)="submit()"
+          >
             {{ submitting() ? 'Submitting…' : 'Submit quiz' }}
           </button>
         </div>

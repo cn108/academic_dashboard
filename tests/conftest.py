@@ -2,7 +2,15 @@ import pytest
 from django.contrib.auth.models import User
 from rest_framework.test import APIClient
 
-from core.models import AcademicSession, ParentStudentLink, Profile, SchoolClass, Subject, Term
+from core.models import (
+    AcademicSession,
+    ParentStudentLink,
+    Profile,
+    School,
+    SchoolClass,
+    Subject,
+    Term,
+)
 
 PASSWORD = "Sup3rSecret!42"
 DEFAULT_STUDENT_PASSWORD = "Student@1234"
@@ -26,8 +34,10 @@ def session(db):
 @pytest.fixture
 def term(session):
     term, _created = Term.objects.get_or_create(session=session, name=Term.FIRST)
-    term.is_current = True
-    term.save()
+    school = School.load()
+    school.current_session = session
+    school.current_term = term
+    school.save()
     return term
 
 
