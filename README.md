@@ -24,15 +24,17 @@ One deployment serves one school. Schools do not share a database, domain or adm
 
 ## Screenshots
 
-Replace these placeholders with production screenshots using the exact filenames below. Capture clean demo data only; never include real student names, phone numbers or payment details. See [`docs/screenshots/README.md`](docs/screenshots/README.md) for capture guidance.
+These are real captures of the running demo app. Replace the sample school branding or names before using them in public sales material. See [`docs/screenshots/README.md`](docs/screenshots/README.md) for capture guidance.
 
-| Screen | File | What it should show |
-| --- | --- | --- |
-| Student dashboard | `docs/screenshots/student-dashboard.png` | Published results summary, current term, upcoming work and attendance |
-| Teacher dashboard | `docs/screenshots/teacher-dashboard.png` | Class overview, result/attendance actions and recent activity |
-| Parent dashboard | `docs/screenshots/parent-dashboard.png` | Linked wards, fees, attendance and result access |
-| Report card | `docs/screenshots/report-card.png` | Print preview with school branding, grades and position |
-| Broadsheet | `docs/screenshots/broadsheet.png` | Class × subject totals, averages and positions with the Excel action |
+| Student dashboard | Teacher dashboard |
+| --- | --- |
+| ![Student dashboard](docs/screenshots/student-dashboard.png) | ![Teacher dashboard](docs/screenshots/teacher-dashboard.png) |
+
+### Broadsheet
+
+![Teacher broadsheet with class totals, averages and positions](docs/screenshots/broadsheet.png)
+
+Parent portal and report-card screenshots will be added after those views can be captured cleanly from the demo environment.
 
 ## Tech Stack
 
