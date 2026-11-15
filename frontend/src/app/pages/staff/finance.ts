@@ -2,11 +2,12 @@ import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 
 import { ApiService } from '../../core/api.service';
+import { ScrollHint } from '../../core/scroll-hint.directive';
 import { Debtor, FinanceSummary, naira, Paged, Term } from '../../core/models';
 
 @Component({
   selector: 'app-staff-finance',
-  imports: [FormsModule],
+  imports: [FormsModule, ScrollHint],
   template: `
     <div class="page-head">
       <div>
@@ -94,7 +95,9 @@ import { Debtor, FinanceSummary, naira, Paged, Term } from '../../core/models';
       </div>
 
       @if (rows().length) {
-        <div class="table-wrap">
+        <div class="table-shell">
+          <p class="scroll-hint">Swipe sideways to see every balance →</p>
+          <div class="table-wrap" appScrollHint>
           <table>
             <thead>
               <tr>
@@ -128,6 +131,7 @@ import { Debtor, FinanceSummary, naira, Paged, Term } from '../../core/models';
               }
             </tbody>
           </table>
+          </div>
         </div>
 
         <div class="row-actions" style="justify-content: space-between; margin-top: 1rem">

@@ -3,12 +3,13 @@ import { FormsModule } from '@angular/forms';
 
 import { ApiService } from '../../core/api.service';
 import { AuthService } from '../../core/auth.service';
+import { ScrollHint } from '../../core/scroll-hint.directive';
 import { printHtmlDocument } from '../../core/print';
 import { gradeTone, Result, Term } from '../../core/models';
 
 @Component({
   selector: 'app-student-results',
-  imports: [FormsModule],
+  imports: [FormsModule, ScrollHint],
   template: `
     <div class="page-head">
       <div>
@@ -68,7 +69,9 @@ import { gradeTone, Result, Term } from '../../core/models';
       </div>
 
       @if (results().length) {
-        <div class="table-wrap">
+        <div class="table-shell">
+          <p class="scroll-hint">Swipe sideways to see all scores →</p>
+          <div class="table-wrap" appScrollHint>
           <table>
             <thead>
               <tr>
@@ -101,6 +104,7 @@ import { gradeTone, Result, Term } from '../../core/models';
               }
             </tbody>
           </table>
+          </div>
         </div>
       } @else {
         <p class="empty">

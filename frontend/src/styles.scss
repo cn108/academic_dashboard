@@ -243,10 +243,54 @@ a:hover {
 /* Tables ------------------------------------------------------------- */
 
 .table-wrap {
-  overflow-x: auto;
+  overflow: auto;
+  max-height: min(70vh, 640px);
   border-radius: 12px;
   border: 1px solid var(--border);
+  box-shadow: inset -18px 0 16px -18px rgba(0, 0, 0, 0.9);
+  -webkit-overflow-scrolling: touch;
 }
+
+.table-shell {
+  position: relative;
+}
+
+.scroll-hint {
+  display: none;
+  margin: 0 0 0.5rem;
+  color: var(--muted);
+  font-size: 0.78rem;
+  transition: opacity 0.2s ease;
+}
+
+.table-shell.scrolled .scroll-hint {
+  opacity: 0.25;
+}
+
+.table-wrap thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: #131e33;
+}
+
+.table-wrap th:first-child,
+.table-wrap td:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: #0f1828;
+  box-shadow: 1px 0 0 var(--border);
+}
+
+.table-wrap thead th:first-child {
+  z-index: 3;
+}
+
+.table-wrap tbody tr:hover td:first-child {
+  background: #121c30;
+}
+
 
 table {
   width: 100%;
@@ -315,6 +359,22 @@ input[type='file'] {
   font-size: 0.82rem;
 }
 
+input[type='date'],
+input[type='datetime-local'] {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.score-input {
+  width: 68px;
+  text-align: center;
+}
+
+.status-toggle {
+  min-width: 76px;
+  text-transform: capitalize;
+}
+
 /* Buttons ------------------------------------------------------------ */
 
 .btn {
@@ -376,6 +436,25 @@ input[type='file'] {
   font-weight: 600;
   letter-spacing: 0.02em;
   border: 1px solid transparent;
+}
+
+.badge-success::before {
+  content: '✓';
+}
+
+.badge-danger::before {
+  content: '✕';
+}
+
+.badge-warning::before {
+  content: '!';
+}
+
+a:focus-visible,
+button:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 .badge-info {
@@ -705,6 +784,32 @@ input[type='file'] {
   .btn-sm {
     min-height: 44px;
     padding: 0.65rem 0.9rem;
+  }
+
+  input,
+  select,
+  textarea {
+    min-height: 44px;
+    font-size: 16px;
+  }
+
+  .score-input {
+    width: 76px;
+    min-height: 44px;
+    padding: 0.45rem 0.3rem;
+  }
+
+  .status-toggle {
+    flex: 1;
+    min-width: 44px;
+  }
+
+  .table-wrap {
+    max-height: 62vh;
+  }
+
+  .scroll-hint {
+    display: block;
   }
 
   .btn-sm {

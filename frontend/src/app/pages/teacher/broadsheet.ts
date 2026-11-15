@@ -2,6 +2,7 @@ import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 
 import { ApiService } from '../../core/api.service';
+import { ScrollHint } from '../../core/scroll-hint.directive';
 import {
   Broadsheet,
   BroadsheetStudent,
@@ -12,7 +13,7 @@ import {
 
 @Component({
   selector: 'app-teacher-broadsheet',
-  imports: [FormsModule],
+  imports: [FormsModule, ScrollHint],
   template: `
     <div class="page-head">
       <div>
@@ -112,7 +113,9 @@ import {
       </div>
 
       @if (students().length && subjects().length) {
-        <div class="table-wrap">
+        <div class="table-shell">
+          <p class="scroll-hint">Swipe sideways to see every subject →</p>
+          <div class="table-wrap" appScrollHint>
           <table>
             <thead>
               <tr>
@@ -163,6 +166,7 @@ import {
               </tr>
             </tfoot>
           </table>
+          </div>
         </div>
       } @else if (!subjects().length) {
         <p class="empty">Set up subjects for this class first.</p>

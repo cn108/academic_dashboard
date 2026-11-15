@@ -83,8 +83,10 @@ type Status = (typeof STATUSES)[number];
                     <div class="row-actions">
                       @for (status of statuses; track status) {
                         <button
-                          class="btn btn-sm"
+                          class="btn btn-sm status-toggle"
                           [class.btn-ghost]="statusFor(student.id) !== status"
+                          [attr.aria-pressed]="statusFor(student.id) === status"
+                          [attr.aria-label]="status + ' for ' + student.full_name"
                           type="button"
                           (click)="mark(student.id, status)"
                         >

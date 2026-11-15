@@ -2,6 +2,7 @@ import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 
 import { ApiService } from '../../core/api.service';
+import { ScrollHint } from '../../core/scroll-hint.directive';
 import { gradeTone, Result, SchoolClass, StudentSummary, Subject, Term } from '../../core/models';
 
 interface Row {
@@ -15,7 +16,7 @@ interface Row {
 
 @Component({
   selector: 'app-teacher-results',
-  imports: [FormsModule],
+  imports: [FormsModule, ScrollHint],
   template: `
     <div class="page-head">
       <div>
@@ -62,7 +63,9 @@ interface Row {
       </div>
 
       @if (rows().length) {
-        <div class="table-wrap">
+        <div class="table-shell">
+          <p class="scroll-hint">Swipe sideways to enter every score →</p>
+          <div class="table-wrap" appScrollHint>
           <table>
             <thead>
               <tr>
@@ -81,10 +84,10 @@ interface Row {
               @for (row of rows(); track row.student.id) {
                 <tr>
                   <td style="font-weight: 600">{{ row.student.full_name }}</td>
-                  <td><input type="number" min="0" max="10" [(ngModel)]="row.ca1" style="width: 64px" /></td>
-                  <td><input type="number" min="0" max="10" [(ngModel)]="row.ca2" style="width: 64px" /></td>
-                  <td><input type="number" min="0" max="20" [(ngModel)]="row.ca3" style="width: 64px" /></td>
-                  <td><input type="number" min="0" max="60" [(ngModel)]="row.exam" style="width: 72px" /></td>
+                  <td><input class="score-input" type="number" inputmode="numeric" min="0" max="10" [(ngModel)]="row.ca1" /></td>
+                  <td><input class="score-input" type="number" inputmode="numeric" min="0" max="10" [(ngModel)]="row.ca2" /></td>
+                  <td><input class="score-input" type="number" inputmode="numeric" min="0" max="20" [(ngModel)]="row.ca3" /></td>
+                  <td><input class="score-input" type="number" inputmode="numeric" min="0" max="60" [(ngModel)]="row.exam" /></td>
                   <td style="font-weight: 600">{{ previewTotal(row) }}</td>
                   <td>
                     <span class="badge" [class]="tone(previewGrade(row))">{{ previewGrade(row) }}</span>
@@ -110,6 +113,7 @@ interface Row {
               }
             </tbody>
           </table>
+          </div>
         </div>
       } @else {
         <p class="empty">Pick a subject with students in your class.</p>
