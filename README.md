@@ -12,7 +12,7 @@ class, a broadsheet for the whole class, results keyed in from a spreadsheet, an
 ![DRF](https://img.shields.io/badge/DRF-3.17-A30000)
 ![Angular](https://img.shields.io/badge/Angular-22-DD0031)
 ![Python](https://img.shields.io/badge/Python-3.12-3776AB)
-![Tests](https://img.shields.io/badge/tests-155%20passing-success)
+![Tests](https://img.shields.io/badge/tests-264%20passing-success)
 ![PWA](https://img.shields.io/badge/PWA-offline--ready-5A0FC8)
 ![Paystack](https://img.shields.io/badge/payments-Paystack-00C3F7)
 
@@ -58,8 +58,9 @@ class, a broadsheet for the whole class, results keyed in from a spreadsheet, an
 - Teacher portal: class roster with CSV student onboarding, score entry with publish/archive,
   broadsheet with template download and CSV upload, lesson notes with attachments, assignment
   marking, submissions grading, announcements (create, edit, publish) and the register.
-- Low-bandwidth budget: the production build ships under 320 kB initial JavaScript (≈304 kB,
-  ≈85 kB over the wire) with lazy-loaded route groups and gzip on at the web server.
+- Low-bandwidth budget: the production build ships 318 kB raw initial JavaScript (≈88 kB over
+  the wire) with lazy-loaded route groups and gzip on at the web server. The raw Angular budget is
+  400/500 kB for feature headroom; gzipped transfer under ~120 kB remains the real constraint.
 
 ## The publishing rule
 
@@ -331,21 +332,34 @@ see, and fees that apply to a student's class level are created on first visit.
 
 ## Production deployment
 
-The production stack is three containers behind Nginx:
+For a public school deployment, follow **[DEPLOYMENT.md](DEPLOYMENT.md)**. It is the complete
+copy-paste runbook: VPS provisioning, DNS, production `.env`, Caddy TLS, first deploy, webhook
+verification, nightly backups and a tested restore.
+
+The public production path adds Caddy in front of the local stack:
 
 ```
-browser ──▶ nginx :8080 ──▶ /            Angular build (static)
-                         └─▶ /api/ /admin/ /static/ /media/ ──▶ backend :8000 (Gunicorn)
-                                                                    └─▶ db :5432 (PostgreSQL)
+browser ──▶ Caddy :443 ──▶ nginx :80 ──▶ /            Angular build (static)
+  (automatic TLS)                      └─▶ /api/ /admin/ /static/ /media/ ──▶ backend :8000
+                                                                                  └─▶ db :5432
 ```
+
+Caddy obtains and renews Let's Encrypt certificates, redirects HTTP to HTTPS, and adds HSTS. Nginx
+is bound to `127.0.0.1:8080` on the host, so it cannot be used to bypass TLS. Django's
+`SECURE_SSL_REDIRECT`, secure cookies and HSTS are forced on by `docker-compose.prod.yml`.
 
 - `Dockerfile.prod` — Python 3.12 + Gunicorn, static files collected into the image, migrations applied
   by `docker-entrypoint.sh` on start, non-root user, `/api/health/` healthcheck.
 - `frontend/Dockerfile.prod` — Node build stage, then Nginx serving the SPA and proxying Django.
 - `frontend/nginx.conf` — SPA deep-link fallback, gzip, hashed assets cached for a year, `index.html`
   and `ngsw-worker.js` never cached, 10 MB upload ceiling, `/static/` and `/media/` proxied to Django.
+  It preserves Caddy's `X-Forwarded-Proto: https` for Django.
+- `docker-compose.prod.yml` + `deploy/Caddyfile` — public Caddy TLS entry point and HTTP → HTTPS
+  redirect.
 
-### Spin up the stack
+### Run the local stack
+
+This is for development or a local smoke test only; it serves plain HTTP on loopback.
 
 ```bash
 cp .env.example .env        # optional: set SECRET_KEY, POSTGRES_PASSWORD, SCHOOL_NAME
@@ -376,9 +390,9 @@ Useful operations:
 ```bash
 docker compose logs -f backend nginx     # follow logs
 docker compose exec backend python manage.py migrate      # manual migration
-docker compose exec db pg_dump -U dashboard dashboard > backup.sql
 docker compose down                      # stop (keeps volumes)
-docker compose down -v                   # stop and delete database + media
+# Never use `down -v` on production: it deletes the database and media volumes.
+# For a production backup, use ./scripts/backup_db.sh (see DEPLOYMENT.md).
 ```
 
 ### Configuration
@@ -392,9 +406,10 @@ docker compose down -v                   # stop and delete database + media
 | `FRONTEND_URL` | `http://localhost:8080` | Public origin of the SPA; appended to `CSRF_TRUSTED_ORIGINS`. |
 | `CSRF_TRUSTED_ORIGINS` | `http://localhost:8080` | Origins allowed to post forms (admin). |
 | `POSTGRES_DB` / `POSTGRES_USER` / `POSTGRES_PASSWORD` | `dashboard` | Database credentials; also composed into `DATABASE_URL`. |
-| `NGINX_PORT` | `8080` | Host port for the web container. |
+| `NGINX_PORT` | `8080` | Loopback-only host port for the web container (`127.0.0.1:8080`). |
 | `SCHOOL_NAME` | `Model Secondary School` | Initial name for the School profile; edit branding in Django admin afterwards. |
-| `SECURE_SSL_REDIRECT` | `False` | Set `True` once HTTPS terminates in front of Nginx (also enables secure cookies and HSTS). |
+| `SECURE_SSL_REDIRECT` | `False` | Local default; the production overlay forces `True` (secure cookies + HSTS). |
+| `DOMAIN` | unset | Caddy's public hostname; required by `docker-compose.prod.yml`. |
 | `PAYSTACK_SECRET_KEY` | empty | Paystack key used to start transactions and verify webhooks. Empty disables payments with a readable message. |
 | `TERMII_API_KEY` | empty | Termii API token; while empty SMS/WhatsApp attempts are recorded as failed (email fallback remains mocked). |
 | `TERMII_SENDER_ID` | `SchoolApp` | Registered sender name for SMS; use the sandbox sender while testing. |
@@ -406,9 +421,14 @@ docker compose down -v                   # stop and delete database + media
 Volumes: `postgres_data` (database) and `media` (uploads, mounted at `/app/media`). Back both up; the
 Angular build and Django static files live inside the images and are rebuilt on every deploy.
 
-For a public deployment, put Caddy, Traefik or a cloud load balancer in front of port 8080 for TLS,
-point the domain at it, then set `FRONTEND_URL=https://school.example`, `DJANGO_ALLOWED_HOSTS=...` and
-`SECURE_SSL_REDIRECT=True`.
+For production, set `DOMAIN`, `FRONTEND_URL=https://DOMAIN`, matching `DJANGO_ALLOWED_HOSTS` and
+`CSRF_TRUSTED_ORIGINS`, then run:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.prod.yml up --build -d
+```
+
+Full TLS, backup and restore steps are in **[DEPLOYMENT.md](DEPLOYMENT.md)**.
 
 ## API
 
@@ -464,12 +484,12 @@ and content they own; anything else returns `404` (not visible) or `403` (visibl
 ## Tests and quality gates
 
 ```bash
-pytest                                   # 155 tests
+pytest                                   # 264 tests
 pytest --cov
 ruff check . && ruff format --check .
 mypy core academic_dashboard
-python manage.py check --deploy
-cd frontend && npm run build              # production build + service worker, 320 kB budget
+python manage.py check --deploy --tag security
+cd frontend && npm run build              # raw 400/500 kB budget; track gzipped transfer
 ```
 
 Coverage highlights: the grading scale and derived fields, the publish/draft visibility rule on all
@@ -499,7 +519,11 @@ core/
 tests/                pytest suite (models, auth, visibility, reports, imports, parents, payments)
 frontend/             Angular SPA — student and teacher portals, PWA config, icons script
 Dockerfile.prod       Gunicorn image + entrypoint migrations
-docker-compose.yml    PostgreSQL + backend + Nginx production stack
+docker-compose.yml    PostgreSQL + backend + Nginx local production-style stack
+docker-compose.prod.yml  Public Caddy TLS overlay
+deploy/Caddyfile      Automatic HTTPS and HTTP → HTTPS redirect
+scripts/backup_db.sh  Nightly PostgreSQL dump with retention
+DEPLOYMENT.md         Full VPS, TLS, webhook, backup and restore runbook
 ```
 
 ## Design decisions
