@@ -11,6 +11,7 @@ import {
   LessonNote,
   Result,
   statusTone,
+  StudentProgress,
 } from '../../core/models';
 
 @Component({
@@ -80,6 +81,52 @@ import {
       <div class="grid">
         <div class="card">
           <div class="card-head">
+            <h2 style="font-size: 1rem">My progress</h2>
+            <a class="small" routerLink="/student/learning">Learning hub</a>
+          </div>
+          @if (progress(); as summary) {
+            <div style="display: flex; align-items: center; gap: 1rem">
+              <svg
+                class="progress-ring"
+                viewBox="0 0 80 80"
+                role="img"
+                [attr.aria-label]="summary.resources.percentage + '% of resources complete'"
+              >
+                <circle class="ring-track" cx="40" cy="40" r="32"></circle>
+                <circle
+                  class="ring-value"
+                  cx="40"
+                  cy="40"
+                  r="32"
+                  [attr.stroke-dasharray]="ringLength"
+                  [attr.stroke-dashoffset]="ringOffset(summary.resources.percentage)"
+                ></circle>
+                <text x="40" y="45" text-anchor="middle" class="ring-text">
+                  {{ summary.resources.percentage }}%
+                </text>
+              </svg>
+              <div>
+                <p style="font-weight: 600">
+                  {{ summary.resources.completed }} of {{ summary.resources.total }} resources
+                </p>
+                <p class="muted small">{{ summary.term?.name || 'Current term' }}</p>
+              </div>
+            </div>
+            <p class="small" style="margin-top: 0.75rem">
+              @if (trend()) {
+                <span class="trend-arrow" [class.down]="!trendUp()">
+                  {{ trendUp() ? '↑' : '↓' }}
+                </span>
+              }
+              {{ trendMessage() }}
+            </p>
+          } @else {
+            <p class="empty">Progress appears once you open a lesson.</p>
+          }
+        </div>
+
+        <div class="card">
+          <div class="card-head">
             <h2 style="font-size: 1rem">Newest lesson note</h2>
             <a class="small" routerLink="/student/notes">All notes</a>
           </div>
@@ -145,6 +192,37 @@ export class StudentDashboard {
   readonly notes = signal<LessonNote[]>([]);
   readonly assignments = signal<Assignment[]>([]);
   readonly announcements = signal<Announcement[]>([]);
+  readonly progress = signal<StudentProgress | null>(null);
+  readonly ringLength = 201.06;
+
+  readonly trend = computed(() => {
+    const points = this.progress()?.trend ?? [];
+    if (points.length < 2) {
+      return null;
+    }
+    const latest = points[points.length - 1];
+    const previous = points[points.length - 2];
+    return {
+      delta: Math.round((latest.average - previous.average) * 10) / 10,
+      from: previous.term,
+    };
+  });
+
+  readonly trendUp = computed(() => (this.trend()?.delta ?? 0) >= 0);
+
+  readonly trendMessage = computed(() => {
+    const change = this.trend();
+    if (!change) {
+      const latest = this.progress()?.trend.at(-1);
+      return latest
+        ? `Your average so far this session is ${latest.average}.`
+        : 'Complete assessments to see your trend.';
+    }
+    if (change.delta === 0) {
+      return `Your average is steady since ${change.from}.`;
+    }
+    return `Your average is ${change.delta > 0 ? 'up' : 'down'} ${Math.abs(change.delta)} points since ${change.from}.`;
+  });
 
   readonly firstName = computed(() => (this.user()?.name ?? 'student').split(' ')[0]);
   readonly termLabel = computed(() => {
@@ -169,6 +247,15 @@ export class StudentDashboard {
     this.api
       .list<Announcement>('announcements')
       .subscribe((rows) => this.announcements.set(rows));
+    this.api.get<StudentProgress>('student/progress/dashboard').subscribe({
+      next: (progress) => this.progress.set(progress),
+      error: () => this.progress.set(null),
+    });
+  }
+
+  ringOffset(percentage: number): number {
+    const bounded = Math.min(100, Math.max(0, percentage));
+    return this.ringLength * (1 - bounded / 100);
   }
 
   tone(grade: string): string {

@@ -14,6 +14,13 @@ export const routes: Routes = [
     loadComponent: () =>
       import('./pages/change-password/change-password').then((m) => m.ChangePasswordPage),
   },
+  // The exam room sits outside the shell so the sidebar and nav disappear.
+  {
+    path: 'student/quizzes/:id/take',
+    canActivate: [authGuard, roleGuard('student'), passwordGuard],
+    loadComponent: () =>
+      import('./pages/student/exam-room').then((m) => m.StudentExamRoom),
+  },
   {
     path: '',
     component: Shell,
@@ -35,6 +42,16 @@ export const routes: Routes = [
           {
             path: 'notes',
             loadComponent: () => import('./pages/student/notes').then((m) => m.StudentNotes),
+          },
+          {
+            path: 'learning',
+            loadComponent: () =>
+              import('./pages/student/learning').then((m) => m.StudentLearning),
+          },
+          {
+            path: 'quizzes',
+            loadComponent: () =>
+              import('./pages/student/quizzes').then((m) => m.StudentQuizzes),
           },
           {
             path: 'assignments',
@@ -83,6 +100,11 @@ export const routes: Routes = [
             path: 'broadsheet',
             loadComponent: () =>
               import('./pages/teacher/broadsheet').then((m) => m.TeacherBroadsheet),
+          },
+          {
+            path: 'quizzes',
+            loadComponent: () =>
+              import('./pages/teacher/quizzes').then((m) => m.TeacherQuizzes),
           },
           {
             path: 'submissions',

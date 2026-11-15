@@ -406,6 +406,165 @@ export interface Debtor {
   guardians: Guardian[];
 }
 
+export type ResourceType = 'video' | 'reading_link' | 'document_attachment';
+
+export interface LessonResource {
+  id: number;
+  lesson: number;
+  type: ResourceType;
+  type_label: string;
+  title: string;
+  url: string;
+  file_url: string | null;
+  order_index: number;
+  is_completed: boolean;
+  completed_at: string | null;
+}
+
+export interface LessonResourcesResponse {
+  lesson: {
+    id: number;
+    topic: string;
+    week_number: number;
+    subject: number;
+    subject_name: string;
+    class_name: string | null;
+    term: number | null;
+    term_name: string | null;
+  };
+  resources: LessonResource[];
+}
+
+export interface TrendPoint {
+  session: string;
+  term: string;
+  average: number;
+  subjects_count: number;
+  subjects: { subject: string; average: number }[];
+}
+
+export interface StudentProgress {
+  term: { id: number; name: string; session_name: string } | null;
+  resources: { total: number; completed: number; percentage: number };
+  trend: TrendPoint[];
+}
+
+export type QuizStatus = 'draft' | 'published' | 'closed';
+
+export interface QuizQuestion {
+  id: number;
+  quiz?: number;
+  text: string;
+  options: string[];
+  correct_option_index: number;
+  points: number;
+}
+
+export interface Quiz {
+  id: number;
+  title: string;
+  subject: number;
+  subject_name: string;
+  class_arm: number;
+  class_name: string;
+  time_limit_minutes: number;
+  total_points: number;
+  status: QuizStatus;
+  available_from: string | null;
+  available_until: string | null;
+  questions_count: number;
+  questions: QuizQuestion[];
+  created_at: string;
+}
+
+export interface StudentQuiz {
+  id: number;
+  title: string;
+  subject: number;
+  subject_name: string;
+  class_arm: number;
+  class_name: string;
+  time_limit_minutes: number;
+  total_points: number;
+  status: QuizStatus;
+  available_from: string | null;
+  available_until: string | null;
+  questions_count: number;
+  created_at: string;
+}
+
+export interface QuizStart {
+  attempt: {
+    id: number;
+    quiz: number;
+    started_at: string;
+    expires_at: string;
+    status: 'in_progress' | 'auto_graded';
+  };
+  quiz: { id: number; title: string; time_limit_minutes: number; total_points: number };
+  questions: { id: number; text: string; options: string[]; points: number }[];
+}
+
+export interface QuizAnswerResult {
+  question: number;
+  selected_option: number | null;
+  correct_option_index: number;
+  is_correct: boolean;
+  points_awarded: number;
+}
+
+export interface QuizSubmitResult {
+  attempt: {
+    id: number;
+    quiz: number;
+    started_at: string;
+    submitted_at: string | null;
+    score: number;
+    total_points: number;
+    percentage: number;
+    passed: boolean;
+    status: 'in_progress' | 'auto_graded';
+  };
+  answers: QuizAnswerResult[];
+}
+
+export interface QuizAttemptRow {
+  id: number;
+  student: number;
+  student_name: string;
+  admission_number: string | null;
+  started_at: string;
+  submitted_at: string | null;
+  score: number;
+  percentage: number;
+  passed: boolean;
+  status: 'in_progress' | 'auto_graded';
+}
+
+export interface QuizAttemptsResponse {
+  quiz: { id: number; title: string; total_points: number; pass_mark: number };
+  attempts: QuizAttemptRow[];
+  summary: {
+    total: number;
+    graded: number;
+    in_progress: number;
+    average_score: number | null;
+    average_percentage: number | null;
+    passed: number;
+    failed: number;
+  };
+}
+
+export function quizTone(status: QuizStatus): string {
+  if (status === 'published') {
+    return 'badge-success';
+  }
+  if (status === 'closed') {
+    return 'badge-danger';
+  }
+  return 'badge-warning';
+}
+
 export function statusTone(status: PublishStatus): string {
   if (status === 'published') {
     return 'badge-success';

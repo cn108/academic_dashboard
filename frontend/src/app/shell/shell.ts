@@ -27,6 +27,7 @@ import { SchoolService } from '../core/school.service';
             <a routerLink="/teacher/class" routerLinkActive="active">My class</a>
             <a routerLink="/teacher/results" routerLinkActive="active">Results</a>
             <a routerLink="/teacher/broadsheet" routerLinkActive="active">Broadsheet</a>
+            <a routerLink="/teacher/quizzes" routerLinkActive="active">Quizzes</a>
             <a routerLink="/teacher/notes" routerLinkActive="active">Lesson notes</a>
             <a routerLink="/teacher/assignments" routerLinkActive="active">Assignments</a>
             <a routerLink="/teacher/submissions" routerLinkActive="active">Submissions</a>
@@ -43,6 +44,8 @@ import { SchoolService } from '../core/school.service';
             <a routerLink="/student/dashboard" routerLinkActive="active">Overview</a>
             <a routerLink="/student/results" routerLinkActive="active">My results</a>
             <a routerLink="/student/notes" routerLinkActive="active">Lesson notes</a>
+            <a routerLink="/student/learning" routerLinkActive="active">Learning hub</a>
+            <a routerLink="/student/quizzes" routerLinkActive="active">Quizzes</a>
             <a routerLink="/student/assignments" routerLinkActive="active">Assignments</a>
             <a routerLink="/student/attendance" routerLinkActive="active">Attendance</a>
             <a routerLink="/student/announcements" routerLinkActive="active">Announcements</a>
