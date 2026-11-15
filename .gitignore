@@ -18,6 +18,9 @@ staticfiles/
 # Local configuration / secrets
 .env
 
+# Database dumps (may contain student data)
+backups/
+
 # Test, lint and type-check caches
 .pytest_cache/
 .ruff_cache/

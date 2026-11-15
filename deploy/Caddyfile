@@ -1,0 +1,29 @@
+# Public TLS entry point for the academic dashboard.
+#
+# DOMAIN is injected by docker-compose.prod.yml and must be a bare hostname
+# such as school.example.edu.ng (no scheme, no trailing slash). Caddy obtains
+# and renews the certificate automatically over HTTP-01/TLS-ALPN.
+
+{$DOMAIN} {
+	encode zstd gzip
+
+	# Caddy sets X-Forwarded-Proto=https automatically. Nginx preserves it for
+	# Django, so SECURE_SSL_REDIRECT sees HTTPS and does not loop.
+	reverse_proxy nginx:80 {
+		header_up X-Real-IP {remote_host}
+	}
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "same-origin"
+		-Server
+	}
+}
+
+# Explicit HTTP-to-HTTPS redirect (301). Caddy serves the certificate challenge
+# on port 80 before applying this route.
+http://{$DOMAIN} {
+	redir https://{$DOMAIN}{uri} permanent
+}

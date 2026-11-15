@@ -1,8 +1,8 @@
 name: academic-dashboard
 
-# Production-style stack: PostgreSQL, Gunicorn behind Nginx, and the compiled
-# Angular SPA served by Nginx. `docker compose up --build` then browse
-# http://localhost:8080.
+# Local production-style stack: PostgreSQL, Gunicorn behind Nginx, and the
+# compiled Angular SPA. `docker compose up --build` then browse
+# http://localhost:8080. Add docker-compose.prod.yml for public HTTPS.
 services:
   db:
     image: postgres:16-alpine
@@ -58,8 +58,10 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile.prod
+    # Loopback only: Caddy is the public entry point in docker-compose.prod.yml.
+    # This also keeps a plain-HTTP bypass off the public interface locally.
     ports:
-      - "${NGINX_PORT:-8080}:80"
+      - "127.0.0.1:${NGINX_PORT:-8080}:80"
     depends_on:
       backend:
         condition: service_healthy

@@ -1,0 +1,38 @@
+name: academic-dashboard
+
+# Public production overlay. Run with:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up --build -d
+#
+# Caddy owns ports 80/443, obtains and renews Let's Encrypt certificates for
+# DOMAIN, redirects HTTP to HTTPS, and proxies to the Nginx container over the
+# private Compose network. Nginx's host port stays bound to 127.0.0.1.
+
+services:
+  backend:
+    environment:
+      # Force HTTPS hardening on even if .env is incomplete. Django trusts
+      # X-Forwarded-Proto, and Nginx now preserves Caddy's https value.
+      # DJANGO_ALLOWED_HOSTS, FRONTEND_URL and CSRF_TRUSTED_ORIGINS stay in
+      # .env as documented; keep DOMAIN equal to the FRONTEND_URL host.
+      SECURE_SSL_REDIRECT: "True"
+
+  caddy:
+    image: caddy:2-alpine
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      DOMAIN: "${DOMAIN:?set DOMAIN in .env}"
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      nginx:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  caddy_data:
+  caddy_config:
