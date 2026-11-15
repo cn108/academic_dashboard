@@ -4,6 +4,7 @@ import { RouterLink } from '@angular/router';
 
 import { ApiService } from '../../core/api.service';
 import { AuthService } from '../../core/auth.service';
+import { SchoolService } from '../../core/school.service';
 import {
   Announcement,
   Assignment,
@@ -186,6 +187,7 @@ import {
 export class StudentDashboard {
   private readonly api = inject(ApiService);
   private readonly auth = inject(AuthService);
+  private readonly schoolService = inject(SchoolService);
 
   readonly user = this.auth.user;
   readonly results = signal<Result[]>([]);
@@ -226,8 +228,12 @@ export class StudentDashboard {
 
   readonly firstName = computed(() => (this.user()?.name ?? 'student').split(' ')[0]);
   readonly termLabel = computed(() => {
-    const result = this.results()[0];
-    return result ? `${result.session_name} · ${result.term_name}` : '';
+    const school = this.schoolService.school();
+    if (school?.current_session && school.current_term) {
+      return `${school.current_session.name} · ${school.current_term.name}`;
+    }
+    const term = this.progress()?.term;
+    return term ? `${term.session_name} · ${term.name}` : '';
   });
   readonly average = computed(() => {
     const rows = this.results();
